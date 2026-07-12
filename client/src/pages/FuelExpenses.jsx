@@ -44,6 +44,7 @@ export default function FuelExpenses() {
     register,
     handleSubmit: handleFuelSubmit,
     reset: resetFuel,
+    watch: watchFuel,
     formState: { errors: fuelErrors }
   } = useForm();
 
@@ -53,6 +54,13 @@ export default function FuelExpenses() {
     reset: resetExp,
     formState: { errors: expErrors }
   } = useForm();
+
+  // Watch fuel quantity and cost to calculate total
+  const fuelQuantity = watchFuel('fuel_quantity');
+  const fuelCost = watchFuel('fuel_cost');
+  const totalFuelCost = fuelQuantity && fuelCost 
+    ? (parseFloat(fuelQuantity) * parseFloat(fuelCost)).toFixed(2)
+    : '0.00';
 
   // Load fuel logs
   const loadFuel = async () => {
@@ -276,7 +284,7 @@ export default function FuelExpenses() {
                         {log.fuel_quantity} Liters
                       </td>
                       <td className="table-cell text-sm font-semibold text-ink-primary font-mono">
-                        ₹{parseFloat(log.fuel_cost).toFixed(2)}
+                        ₹{(parseFloat(log.fuel_quantity) * parseFloat(log.fuel_cost)).toFixed(2)}
                       </td>
                       <td className="table-cell text-xs font-mono text-ink-muted">
                         {parseFloat(log.odometer).toLocaleString()} km
@@ -375,19 +383,26 @@ export default function FuelExpenses() {
               {fuelErrors.fuel_quantity && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{fuelErrors.fuel_quantity.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Cost (₹ INR)</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Cost per Liter (₹/L)</label>
               <div className="relative">
                 <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="e.g. 480"
+                  placeholder="e.g. 95.50"
                   className="input pl-9"
-                  {...register('fuel_cost', { required: 'Cost required', min: { value: 0.01, message: 'Must be > 0' } })}
+                  {...register('fuel_cost', { required: 'Cost per liter required', min: { value: 0.01, message: 'Must be > 0' } })}
                 />
               </div>
               {fuelErrors.fuel_cost && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{fuelErrors.fuel_cost.message}</p>}
             </div>
+          </div>
+
+          <div className="bg-surface-sunken border border-line rounded-lg p-3">
+            <p className="text-xs text-ink-muted font-medium mb-2">Total Cost Calculation:</p>
+            <p className="text-lg font-semibold text-ink-primary">
+              {fuelQuantity && fuelCost ? `${fuelQuantity} L × ₹${parseFloat(fuelCost).toFixed(2)}/L` : '—'} = <span className="text-emerald-500 dark:text-emerald-400">₹{totalFuelCost}</span>
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
