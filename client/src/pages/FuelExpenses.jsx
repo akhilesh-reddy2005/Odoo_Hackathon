@@ -41,7 +41,10 @@ export default function FuelExpenses() {
   const [fuelOpen, setFuelOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
 
-  const { register, handleSubmit: handleForm, reset, formState: { errors } } = useForm();
+  // Track selected vehicle for odometer hint
+  const [selectedVehicleOdo, setSelectedVehicleOdo] = useState(null);
+
+  const { register, handleSubmit: handleForm, reset, watch, formState: { errors } } = useForm();
 
   // Load fuel logs
   const loadFuel = async () => {
@@ -108,6 +111,7 @@ export default function FuelExpenses() {
       await fuelService.create(data);
       toast.success('Fuel log recorded. Vehicle efficiency & expenses updated!');
       setFuelOpen(false);
+      setSelectedVehicleOdo(null);
       reset();
       loadData();
     } catch (err) {
@@ -185,7 +189,7 @@ export default function FuelExpenses() {
             >
               <option value="All" className="bg-darkbg-sidebar">All Vehicles</option>
               {vehicles.map(v => (
-                <option key={v.id} value={v.id} className="bg-darkbg-sidebar">{v.name} ({v.registration_number})</option>
+                <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">{v.name} ({v.registration_number})</option>
               ))}
             </select>
           </div>
@@ -217,7 +221,7 @@ export default function FuelExpenses() {
               >
                 <option value="All" className="bg-darkbg-sidebar">All Vehicles</option>
                 {vehicles.map(v => (
-                  <option key={v.id} value={v.id} className="bg-darkbg-sidebar">{v.name}</option>
+                  <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">{v.name}</option>
                 ))}
               </select>
             </div>
@@ -245,7 +249,7 @@ export default function FuelExpenses() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {fuelLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={log.id || log._id} className="hover:bg-white/5 transition-colors">
                     <td className="table-cell font-mono text-xs text-gray-400">
                       {new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
@@ -285,7 +289,7 @@ export default function FuelExpenses() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {expenses.map(exp => (
-                  <tr key={exp.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={exp.id || exp._id} className="hover:bg-white/5 transition-colors">
                     <td className="table-cell font-mono text-xs text-gray-400">
                       {new Date(exp.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
@@ -326,17 +330,21 @@ export default function FuelExpenses() {
       )}
 
       {/* Modal: Log Fuel Purchase */}
-      <Modal isOpen={fuelOpen} onClose={() => setFuelOpen(false)} title="Log Fuel Purchase">
+      <Modal isOpen={fuelOpen} onClose={() => { setFuelOpen(false); setSelectedVehicleOdo(null); }} title="Log Fuel Purchase">
         <form onSubmit={handleForm(onFuelSubmit)} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle</label>
             <select
               className="glass-input cursor-pointer"
               {...register('vehicle_id', { required: 'Vehicle selection required' })}
+              onChange={(e) => {
+                const v = vehicles.find(v => (v.id || v._id) == e.target.value);
+                setSelectedVehicleOdo(v ? parseFloat(v.current_odometer) : null);
+              }}
             >
               <option value="" className="bg-darkbg-sidebar">Select vehicle...</option>
               {vehicles.map(v => (
-                <option key={v.id} value={v.id} className="bg-darkbg-sidebar">
+                <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">
                   {v.name} ({v.registration_number})
                 </option>
               ))}
@@ -351,8 +359,9 @@ export default function FuelExpenses() {
                 step="0.01"
                 placeholder="e.g. 120"
                 className="glass-input"
-                {...register('fuel_quantity', { required: 'Quantity required' })}
+                {...register('fuel_quantity', { required: 'Quantity required', min: { value: 0.01, message: 'Must be > 0' } })}
               />
+              {errors.fuel_quantity && <p className="text-red-400 text-[10px] mt-1">{errors.fuel_quantity.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Cost (₹ INR)</label>
@@ -361,8 +370,9 @@ export default function FuelExpenses() {
                 step="0.01"
                 placeholder="e.g. 480"
                 className="glass-input"
-                {...register('fuel_cost', { required: 'Cost required' })}
+                {...register('fuel_cost', { required: 'Cost required', min: { value: 0.01, message: 'Must be > 0' } })}
               />
+              {errors.fuel_cost && <p className="text-red-400 text-[10px] mt-1">{errors.fuel_cost.message}</p>}
             </div>
           </div>
 
@@ -376,6 +386,7 @@ export default function FuelExpenses() {
                 className="glass-input"
                 {...register('odometer', { required: 'Odometer required' })}
               />
+              {errors.odometer && <p className="text-red-400 text-[10px] mt-1">{errors.odometer.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Purchase Date</label>
@@ -389,7 +400,7 @@ export default function FuelExpenses() {
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
-            <button type="button" onClick={() => setFuelOpen(false)} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => { setFuelOpen(false); setSelectedVehicleOdo(null); }} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Register Fuel Log</button>
           </div>
         </form>
@@ -412,8 +423,8 @@ export default function FuelExpenses() {
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Associated Vehicle</label>
               <select className="glass-input cursor-pointer" {...register('vehicle_id')}>
                 <option value="" className="bg-darkbg-sidebar">No vehicle (General)</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id} className="bg-darkbg-sidebar">{v.name}</option>
+                 {vehicles.map(v => (
+                  <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">{v.name}</option>
                 ))}
               </select>
             </div>

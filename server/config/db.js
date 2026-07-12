@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// Enable virtuals globally for both toObject and toJSON so that 'id' is mapped from '_id'
+mongoose.plugin((schema) => {
+  schema.set('toObject', { virtuals: true });
+  schema.set('toJSON', { virtuals: true });
+});
+
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/transitops_db';
 
 // Connect to MongoDB

@@ -61,7 +61,7 @@ export default function Trips() {
   // Update capacity warning dynamically
   useEffect(() => {
     if (watchedVehicleId && watchedCargoWeight) {
-      const selected = vehicles.find(v => v.id === parseInt(watchedVehicleId));
+      const selected = vehicles.find(v => (v.id || v._id) === watchedVehicleId);
       if (selected && parseFloat(watchedCargoWeight) > parseFloat(selected.capacity)) {
         setCapacityWarning(`Warning: Cargo weight (${watchedCargoWeight} kg) exceeds vehicle payload capacity (${selected.capacity} kg) for ${selected.name}!`);
       } else {
@@ -125,7 +125,7 @@ export default function Trips() {
 
   // Complete trigger
   const triggerComplete = (trip) => {
-    setCompletingTripId(trip.id);
+    setCompletingTripId(trip.id || trip._id);
     setSelectedVehicleTargetOdo(parseFloat(trip.planned_distance)); // default odometer bump
     setCompleteOpen(true);
   };
@@ -237,7 +237,7 @@ export default function Trips() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {trips.map((t) => (
-                  <tr key={t.id} className="hover:bg-white/5 transition-all group">
+                  <tr key={t.id || t._id} className="hover:bg-white/5 transition-all group">
                     <td className="table-cell">
                       <p className="font-semibold text-white text-xs flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5 text-brand-orange" />
@@ -275,7 +275,7 @@ export default function Trips() {
                         {/* Dispatch trigger for Drafts */}
                         {t.status === 'Draft' && (
                           <button
-                            onClick={() => handleDispatch(t.id)}
+                            onClick={() => handleDispatch(t.id || t._id)}
                             className="btn-primary h-8 px-2.5 text-[10px] uppercase font-bold flex items-center gap-1 shadow-md shadow-brand-orange/10"
                             title="Dispatch Trip"
                           >
@@ -299,7 +299,7 @@ export default function Trips() {
                         {/* Cancel trigger for Drafts & Dispatched */}
                         {(t.status === 'Draft' || t.status === 'Dispatched') && (
                           <button
-                            onClick={() => handleCancel(t.id)}
+                            onClick={() => handleCancel(t.id || t._id)}
                             className="bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 h-8 px-2.5 text-[10px] uppercase font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all"
                             title="Cancel Trip"
                           >
@@ -320,7 +320,7 @@ export default function Trips() {
                         {/* Delete trigger for drafts/cancelled */}
                         {(t.status === 'Draft' || t.status === 'Cancelled') && (
                           <button
-                            onClick={() => handleDelete(t.id)}
+                            onClick={() => handleDelete(t.id || t._id)}
                             className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-400 transition-all h-8 w-8 flex items-center justify-center"
                             title="Delete Record"
                           >
@@ -374,7 +374,7 @@ export default function Trips() {
                 {vehicles
                   .filter(v => v.status === 'Available')
                   .map(v => (
-                    <option key={v.id} value={v.id} className="bg-darkbg-sidebar">
+                    <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">
                       {v.name} ({v.registration_number}) - Cap: {v.capacity}kg
                     </option>
                   ))}
@@ -391,7 +391,7 @@ export default function Trips() {
                 {drivers
                   .filter(d => d.status === 'Available')
                   .map(d => (
-                    <option key={d.id} value={d.id} className="bg-darkbg-sidebar">
+                    <option key={d.id || d._id} value={d.id || d._id} className="bg-darkbg-sidebar">
                       {d.name} ({d.license_category})
                     </option>
                   ))}

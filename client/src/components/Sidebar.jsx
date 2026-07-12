@@ -25,7 +25,7 @@ export default function Sidebar() {
     { name: 'Trips', path: '/trips', icon: Milestone, permission: 'trips' },
     { name: 'Maintenance', path: '/maintenance', icon: Wrench, permission: 'maintenance' },
     { name: 'Fuel & Expenses', path: '/fuel-expenses', icon: Fuel, permission: 'fuel' },
-    { name: 'Analytics', path: '/analytics', icon: analyticsItemRequiredPermission() ? 'analytics' : 'dashboard' },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3, permission: 'analytics' },
     { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
   ];
 

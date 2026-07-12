@@ -94,7 +94,7 @@ export default function Fleet() {
     }
     const headers = ['ID,Registration Number,Vehicle Name,Model,Type,Capacity (kg),Current Odometer (km),Acquisition Cost (₹),Purchase Date,Status,Health Score\n'];
     const rows = vehicles.map(v => 
-      `"${v.id}","${v.registration_number}","${v.name}","${v.model}","${v.type}","${v.capacity}","${v.current_odometer}","${v.acquisition_cost}","${v.purchase_date}","${v.status}","${v.health_score}%"`
+      `"${v.id || v._id}","${v.registration_number}","${v.name}","${v.model}","${v.type}","${v.capacity}","${v.current_odometer}","${v.acquisition_cost}","${v.purchase_date}","${v.status}","${v.health_score}%"`
     );
     const blob = new Blob([headers.concat(rows.join('\n')).join('')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -112,7 +112,7 @@ export default function Fleet() {
     setDetailOpen(true);
     setDetailLoading(true);
     try {
-      const data = await vehicleService.getById(vehicle.id);
+      const data = await vehicleService.getById(vehicle.id || vehicle._id);
       setSelectedVehicle(data);
     } catch (err) {
       toast.error('Failed to load vehicle history logs.');
@@ -153,7 +153,7 @@ export default function Fleet() {
   // Edit Submit
   const onEditSubmit = async (data) => {
     try {
-      await vehicleService.update(selectedVehicle.id, data);
+      await vehicleService.update(selectedVehicle.id || selectedVehicle._id, data);
       toast.success('Vehicle logs successfully updated.');
       setEditOpen(false);
       loadVehicles();
@@ -260,7 +260,7 @@ export default function Fleet() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {vehicles.map((v) => (
-                  <tr key={v.id} className="hover:bg-white/5 transition-all group">
+                  <tr key={v.id || v._id} className="hover:bg-white/5 transition-all group">
                     <td className="table-cell font-mono text-xs font-semibold text-brand-orange">
                       {v.registration_number}
                     </td>
@@ -302,7 +302,7 @@ export default function Fleet() {
                         <button onClick={() => openEdit(v)} className="p-1.5 bg-white/5 border border-white/10 hover:border-brand-orange/30 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all">
                           <Edit className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => handleDelete(v.id)} className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-400 transition-all">
+                        <button onClick={() => handleDelete(v.id || v._id)} className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-400 transition-all">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -564,7 +564,7 @@ export default function Fleet() {
                   <p className="text-[11px] text-gray-500 py-4 text-center">No trips logged on this vehicle.</p>
                 ) : (
                   selectedVehicle.trip_history?.map(t => (
-                    <div key={t.id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
+                    <div key={t.id || t._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
                       <div className="flex justify-between font-semibold text-white">
                         <span>{t.source} → {t.destination}</span>
                         <span className="font-mono text-gray-400">{t.planned_distance} km</span>
@@ -588,7 +588,7 @@ export default function Fleet() {
                   <p className="text-[11px] text-gray-500 py-4 text-center">No maintenance logs recorded.</p>
                 ) : (
                   selectedVehicle.maintenance_history?.map(m => (
-                    <div key={m.id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
+                    <div key={m.id || m._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
                       <div className="flex justify-between font-semibold text-white">
                         <span>{m.issue}</span>
                         <span className="font-mono text-gray-400">₹{m.actual_cost || m.estimated_cost}</span>

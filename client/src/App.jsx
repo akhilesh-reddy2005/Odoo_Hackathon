@@ -80,7 +80,7 @@ export default function App() {
             <Route 
               path="analytics" 
               element={
-                <ProtectedRoute requiredPermission="dashboard">
+                <ProtectedRoute requiredPermission="analytics">
                   <Analytics />
                 </ProtectedRoute>
               } 

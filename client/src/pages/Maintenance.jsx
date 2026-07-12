@@ -107,7 +107,7 @@ export default function Maintenance() {
       return;
     }
     try {
-      await maintenanceService.update(completingTicket.id, { 
+      await maintenanceService.update(completingTicket.id || completingTicket._id, { 
         status: 'Completed', 
         actual_cost: parseFloat(actualCost) 
       });
@@ -214,7 +214,7 @@ export default function Maintenance() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-white/5 transition-all group">
+                  <tr key={log.id || log._id} className="hover:bg-white/5 transition-all group">
                     <td className="table-cell">
                       <p className="font-semibold text-white text-xs">{log.vehicle_name}</p>
                       <p className="text-[10px] text-gray-500 font-mono mt-0.5">{log.vehicle_reg}</p>
@@ -258,7 +258,7 @@ export default function Maintenance() {
                         {/* Start repair trigger */}
                         {log.status === 'Pending' && (
                           <button
-                            onClick={() => handleStartRepair(log.id)}
+                            onClick={() => handleStartRepair(log.id || log._id)}
                             className="btn-primary h-8 px-2.5 text-[10px] uppercase font-bold flex items-center gap-1 shadow-md shadow-brand-orange/10"
                           >
                             <Play className="h-3 w-3" />
@@ -280,7 +280,7 @@ export default function Maintenance() {
                         {/* Cancel ticket */}
                         {(log.status === 'Pending' || log.status === 'In Progress') && (
                           <button
-                            onClick={() => handleCancelTicket(log.id)}
+                            onClick={() => handleCancelTicket(log.id || log._id)}
                             className="bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 h-8 px-2.5 text-[10px] uppercase font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all"
                           >
                             <XCircle className="h-3 w-3" />
@@ -291,7 +291,7 @@ export default function Maintenance() {
                         {/* Delete ticket */}
                         {(log.status === 'Completed' || log.status === 'Cancelled') && (
                           <button
-                            onClick={() => handleDelete(log.id)}
+                            onClick={() => handleDelete(log.id || log._id)}
                             className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-400 transition-all h-8 w-8 flex items-center justify-center"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -344,7 +344,7 @@ export default function Maintenance() {
                 {vehicles
                   .filter(v => v.status !== 'Retired' && v.status !== 'On Trip')
                   .map(v => (
-                    <option key={v.id} value={v.id} className="bg-darkbg-sidebar">
+                    <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">
                       {v.name} ({v.registration_number})
                     </option>
                   ))}
