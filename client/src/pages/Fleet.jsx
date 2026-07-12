@@ -92,7 +92,7 @@ export default function Fleet() {
       toast.error('No data available to export.');
       return;
     }
-    const headers = ['ID,Registration Number,Vehicle Name,Model,Type,Capacity (kg),Current Odometer (km),Acquisition Cost ($),Purchase Date,Status,Health Score\n'];
+    const headers = ['ID,Registration Number,Vehicle Name,Model,Type,Capacity (kg),Current Odometer (km),Acquisition Cost (₹),Purchase Date,Status,Health Score\n'];
     const rows = vehicles.map(v => 
       `"${v.id}","${v.registration_number}","${v.name}","${v.model}","${v.type}","${v.capacity}","${v.current_odometer}","${v.acquisition_cost}","${v.purchase_date}","${v.status}","${v.health_score}%"`
     );
@@ -408,7 +408,7 @@ export default function Fleet() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Acquisition Cost ($)</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Acquisition Cost (₹)</label>
               <input
                 type="number"
                 placeholder="e.g. 145000"
@@ -496,7 +496,7 @@ export default function Fleet() {
 
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Acquisition Cost ($)</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Acquisition Cost (₹)</label>
               <input
                 type="number"
                 className="glass-input"
@@ -591,7 +591,7 @@ export default function Fleet() {
                     <div key={m.id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
                       <div className="flex justify-between font-semibold text-white">
                         <span>{m.issue}</span>
-                        <span className="font-mono text-gray-400">${m.actual_cost || m.estimated_cost}</span>
+                        <span className="font-mono text-gray-400">₹{m.actual_cost || m.estimated_cost}</span>
                       </div>
                       <div className="flex justify-between mt-1 text-[10px] text-gray-500 font-medium">
                         <span>Status: {m.status}</span>

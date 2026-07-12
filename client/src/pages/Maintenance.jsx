@@ -12,7 +12,7 @@ import {
   XCircle, 
   ExternalLink,
   Tag,
-  DollarSign
+  IndianRupee
 } from 'lucide-react';
 
 import { maintenanceService, vehicleService } from '../services/api';
@@ -229,9 +229,9 @@ export default function Maintenance() {
                       </p>
                     </td>
                     <td className="table-cell text-xs font-mono">
-                      <p className="text-gray-300">Est: ${log.estimated_cost}</p>
+                      <p className="text-gray-300">Est: ₹{log.estimated_cost}</p>
                       {log.status === 'Completed' && (
-                        <p className="text-green-400 font-semibold mt-0.5">Act: ${log.actual_cost}</p>
+                        <p className="text-green-400 font-semibold mt-0.5">Act: ₹{log.actual_cost}</p>
                       )}
                     </td>
                     <td className="table-cell text-center">
@@ -376,7 +376,7 @@ export default function Maintenance() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Estimated Cost ($ USD)</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Estimated Cost (₹ INR)</label>
             <input
               type="number"
               step="0.01"
@@ -411,9 +411,9 @@ export default function Maintenance() {
             Please input the actual repair cost billed by the workshop. This will complete the ticket, release the vehicle, and automatically file a transaction ledger in the expenses database.
           </p>
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Actual Repair Cost ($ USD)</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Actual Repair Cost (₹ INR)</label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold"><DollarSign className="h-4 w-4" /></span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold"><IndianRupee className="h-4 w-4" /></span>
               <input
                 type="number"
                 step="0.01"

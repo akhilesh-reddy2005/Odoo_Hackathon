@@ -239,7 +239,7 @@ export default function FuelExpenses() {
                   <th className="table-header text-[10px]">Date</th>
                   <th className="table-header text-[10px]">Vehicle</th>
                   <th className="table-header text-[10px]">Fuel Quantity</th>
-                  <th className="table-header text-[10px]">Cost (USD)</th>
+                  <th className="table-header text-[10px]">Cost (INR)</th>
                   <th className="table-header text-[10px]">Odometer reading</th>
                 </tr>
               </thead>
@@ -257,7 +257,7 @@ export default function FuelExpenses() {
                       {log.fuel_quantity} Liters
                     </td>
                     <td className="table-cell text-xs font-semibold text-white font-mono">
-                      ${parseFloat(log.fuel_cost).toFixed(2)}
+                      ₹{parseFloat(log.fuel_cost).toFixed(2)}
                     </td>
                     <td className="table-cell text-xs font-mono text-gray-400">
                       {parseFloat(log.odometer).toLocaleString()} km
@@ -312,7 +312,7 @@ export default function FuelExpenses() {
                       )}
                     </td>
                     <td className="table-cell text-xs font-semibold text-white font-mono">
-                      ${parseFloat(exp.amount).toFixed(2)}
+                      ₹{parseFloat(exp.amount).toFixed(2)}
                     </td>
                     <td className="table-cell text-xs text-gray-400 max-w-xs truncate">
                       {exp.description}
@@ -355,7 +355,7 @@ export default function FuelExpenses() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Cost ($ USD)</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Cost (₹ INR)</label>
               <input
                 type="number"
                 step="0.01"
@@ -421,7 +421,7 @@ export default function FuelExpenses() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Amount Billed ($)</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Amount Billed (₹ INR)</label>
               <input
                 type="number"
                 step="0.01"

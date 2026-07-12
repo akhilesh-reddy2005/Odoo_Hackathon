@@ -156,9 +156,9 @@ export default function Dashboard() {
         <div className="glass-card glass-card-hover p-6 flex items-center justify-between border-l-4 border-l-amber-500 animate-in fade-in slide-in-from-bottom-3 duration-600">
           <div>
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest block">Today's Costs</span>
-            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">${(kpis.todayExpenses + kpis.todayFuelCost).toFixed(2)}</span>
+            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">₹{(kpis.todayExpenses + kpis.todayFuelCost).toFixed(2)}</span>
             <p className="text-[10px] text-gray-500 font-semibold uppercase mt-2">
-              Fuel: ${kpis.todayFuelCost.toFixed(2)} | Exp: ${kpis.todayExpenses.toFixed(2)}
+              Fuel: ₹{kpis.todayFuelCost.toFixed(2)} | Exp: ₹{kpis.todayExpenses.toFixed(2)}
             </p>
           </div>
           <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20">
@@ -324,7 +324,7 @@ export default function Dashboard() {
                 <div key={log.id} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all flex justify-between items-center gap-4">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-white truncate">{log.issue} ({log.vehicle_name})</p>
-                    <p className="text-[10px] text-gray-500 truncate mt-1">Est: ${log.estimated_cost} | {log.description}</p>
+                    <p className="text-[10px] text-gray-500 truncate mt-1">Est: ₹{log.estimated_cost} | {log.description}</p>
                   </div>
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
                     log.priority === 'Critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :

@@ -68,7 +68,7 @@ export default function Analytics() {
           <div>
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block">Highest Maintenance Truck</span>
             <span className="text-lg font-bold text-white mt-1.5 block truncate max-w-[150px]">{costlyVehicles[0]?.name || 'N/A'}</span>
-            <span className="text-[10px] text-red-400 mt-1 block">Spent: ${costlyVehicles[0]?.cost.toFixed(2)}</span>
+            <span className="text-[10px] text-red-400 mt-1 block">Spent: ₹{costlyVehicles[0]?.cost.toFixed(2)}</span>
           </div>
           <Wrench className="h-7 w-7 text-blue-500/60" />
         </div>
@@ -157,7 +157,7 @@ export default function Analytics() {
                 <Tooltip contentStyle={customTooltipStyle} />
                 <Legend iconSize={8} formatter={(value) => <span className="text-[10px] text-gray-400 font-medium font-sans">{value}</span>} />
                 <Bar yAxisId="left" dataKey="quantity" fill="#3b82f6" name="Fuel Liters" />
-                <Bar yAxisId="right" dataKey="cost" fill="#f97316" name="Total Cost ($)" />
+                <Bar yAxisId="right" dataKey="cost" fill="#f97316" name="Total Cost (₹)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -179,8 +179,8 @@ export default function Analytics() {
                 <YAxis stroke="#9ca3af" fontSize={10} />
                 <Tooltip contentStyle={customTooltipStyle} />
                 <Legend iconSize={8} formatter={(value) => <span className="text-[10px] text-gray-400 font-medium font-sans">{value}</span>} />
-                <Line type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2.5} name="Earned Revenue ($)" />
-                <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Total Expenses ($)" />
+                <Line type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2.5} name="Earned Revenue (₹)" />
+                <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Total Expenses (₹)" />
                 <Line type="monotone" dataKey="roi" stroke="#f97316" strokeDasharray="4 4" name="ROI % Rate" />
               </LineChart>
             </ResponsiveContainer>

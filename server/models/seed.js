@@ -69,8 +69,8 @@ async function seedDatabase() {
     const financeRole = roles.find(r => r.name === 'Financial Analyst')._id;
     const driverRole = roles.find(r => r.name === 'Driver')._id;
 
-    // 2. Seed Users (Password hash for 'password123')
-    const passwordHash = '$2a$10$L121tJ9p2wVf4zY9bI6mueoK3z7g9tFv4sM1zM0d4xNn2rT9KzG.u';
+    // 2. Seed Users (Password hash generated dynamically)
+    const passwordHash = await bcrypt.hash('password123', 10);
     const users = await User.insertMany([
       { username: 'admin', email: 'admin@transitops.com', password_hash: passwordHash, role: adminRole, name: 'Alex Mercer', status: 'Active' },
       { username: 'manager', email: 'manager@transitops.com', password_hash: passwordHash, role: managerRole, name: 'Sarah Jenkins', status: 'Active' },
