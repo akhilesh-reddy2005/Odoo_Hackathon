@@ -45,8 +45,20 @@ export default function Fleet() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // Form hooks
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+  // Form hooks — separate instances to prevent state bleed between modals
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors }
+  } = useForm();
+
+  const {
+    register: registerEdit,
+    handleSubmit: handleEditSubmit,
+    setValue,
+    formState: { errors: editErrors }
+  } = useForm();
 
   // Load vehicles
   const loadVehicles = async () => {
@@ -435,14 +447,14 @@ export default function Fleet() {
 
       {/* Modal: Edit Vehicle */}
       <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Modify Vehicle Data">
-        <form onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
+        <form onSubmit={handleEditSubmit(onEditSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Registration Number</label>
               <input
                 type="text"
                 className="glass-input uppercase"
-                {...register('registration_number', { required: true })}
+                {...registerEdit('registration_number', { required: true })}
               />
             </div>
             <div>
@@ -450,7 +462,7 @@ export default function Fleet() {
               <input
                 type="text"
                 className="glass-input"
-                {...register('name', { required: true })}
+                {...registerEdit('name', { required: true })}
               />
             </div>
           </div>
@@ -461,12 +473,12 @@ export default function Fleet() {
               <input
                 type="text"
                 className="glass-input"
-                {...register('model', { required: true })}
+                {...registerEdit('model', { required: true })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle Category</label>
-              <select className="glass-input cursor-pointer" {...register('type', { required: true })}>
+              <select className="glass-input cursor-pointer" {...registerEdit('type', { required: true })}>
                 <option value="Semi-Truck" className="bg-darkbg-sidebar">Semi-Truck</option>
                 <option value="Box Truck" className="bg-darkbg-sidebar">Box Truck</option>
                 <option value="Delivery Van" className="bg-darkbg-sidebar">Delivery Van</option>
@@ -481,7 +493,7 @@ export default function Fleet() {
               <input
                 type="number"
                 className="glass-input"
-                {...register('capacity', { required: true })}
+                {...registerEdit('capacity', { required: true })}
               />
             </div>
             <div>
@@ -489,7 +501,7 @@ export default function Fleet() {
               <input
                 type="number"
                 className="glass-input"
-                {...register('current_odometer', { required: true })}
+                {...registerEdit('current_odometer', { required: true })}
               />
             </div>
           </div>
@@ -500,12 +512,12 @@ export default function Fleet() {
               <input
                 type="number"
                 className="glass-input"
-                {...register('acquisition_cost', { required: true })}
+                {...registerEdit('acquisition_cost', { required: true })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Status</label>
-              <select className="glass-input cursor-pointer" {...register('status', { required: true })}>
+              <select className="glass-input cursor-pointer" {...registerEdit('status', { required: true })}>
                 <option value="Available" className="bg-darkbg-sidebar">Available</option>
                 <option value="On Trip" className="bg-darkbg-sidebar">On Trip</option>
                 <option value="In Shop" className="bg-darkbg-sidebar">In Shop</option>
@@ -519,7 +531,7 @@ export default function Fleet() {
             <input
               type="date"
               className="glass-input"
-              {...register('purchase_date', { required: true })}
+              {...registerEdit('purchase_date', { required: true })}
             />
           </div>
 

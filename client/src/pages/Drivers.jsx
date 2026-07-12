@@ -46,8 +46,20 @@ export default function Drivers() {
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // Form hook
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+  // Form hooks — separate instances to prevent state bleed between modals
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors }
+  } = useForm();
+
+  const {
+    register: registerEdit,
+    handleSubmit: handleEditSubmit,
+    setValue,
+    formState: { errors: editErrors }
+  } = useForm();
 
   // Load drivers list
   const loadDrivers = async () => {
@@ -415,13 +427,13 @@ export default function Drivers() {
 
       {/* Modal: Edit Driver */}
       <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Update Operator Credentials">
-        <form onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
+        <form onSubmit={handleEditSubmit(onEditSubmit)} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Driver Full Name</label>
             <input
               type="text"
               className="glass-input"
-              {...register('name', { required: true })}
+              {...registerEdit('name', { required: true })}
             />
           </div>
 
@@ -431,7 +443,7 @@ export default function Drivers() {
               <input
                 type="text"
                 className="glass-input"
-                {...register('phone', { required: true })}
+                {...registerEdit('phone', { required: true })}
               />
             </div>
             <div>
@@ -439,7 +451,7 @@ export default function Drivers() {
               <input
                 type="text"
                 className="glass-input uppercase"
-                {...register('license_number', { required: true })}
+                {...registerEdit('license_number', { required: true })}
               />
             </div>
           </div>
@@ -447,7 +459,7 @@ export default function Drivers() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">License Category</label>
-              <select className="glass-input cursor-pointer" {...register('license_category', { required: true })}>
+              <select className="glass-input cursor-pointer" {...registerEdit('license_category', { required: true })}>
                 <option value="CDL-A" className="bg-darkbg-sidebar">CDL Class A</option>
                 <option value="CDL-B" className="bg-darkbg-sidebar">CDL Class B</option>
                 <option value="CDL-C" className="bg-darkbg-sidebar">CDL Class C</option>
@@ -459,7 +471,7 @@ export default function Drivers() {
               <input
                 type="date"
                 className="glass-input"
-                {...register('license_expiry', { required: true })}
+                {...registerEdit('license_expiry', { required: true })}
               />
             </div>
           </div>
@@ -471,7 +483,7 @@ export default function Drivers() {
                 type="number"
                 step="0.01"
                 className="glass-input"
-                {...register('safety_score', { required: true })}
+                {...registerEdit('safety_score', { required: true })}
               />
             </div>
             <div>
@@ -480,12 +492,12 @@ export default function Drivers() {
                 type="number"
                 step="0.01"
                 className="glass-input"
-                {...register('fuel_efficiency', { required: true })}
+                {...registerEdit('fuel_efficiency', { required: true })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Duty Status</label>
-              <select className="glass-input cursor-pointer" {...register('status', { required: true })}>
+              <select className="glass-input cursor-pointer" {...registerEdit('status', { required: true })}>
                 <option value="Available" className="bg-darkbg-sidebar">Available</option>
                 <option value="On Trip" className="bg-darkbg-sidebar">On Trip</option>
                 <option value="Off Duty" className="bg-darkbg-sidebar">Off Duty</option>

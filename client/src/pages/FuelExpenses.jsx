@@ -44,7 +44,20 @@ export default function FuelExpenses() {
   // Track selected vehicle for odometer hint
   const [selectedVehicleOdo, setSelectedVehicleOdo] = useState(null);
 
-  const { register, handleSubmit: handleForm, reset, watch, formState: { errors } } = useForm();
+  // Separate form instances to prevent cross-modal validation bleed
+  const {
+    register,
+    handleSubmit: handleFuelSubmit,
+    reset: resetFuel,
+    formState: { errors: fuelErrors }
+  } = useForm();
+
+  const {
+    register: registerExp,
+    handleSubmit: handleExpSubmit,
+    reset: resetExp,
+    formState: { errors: expErrors }
+  } = useForm();
 
   // Load fuel logs
   const loadFuel = async () => {
@@ -112,7 +125,7 @@ export default function FuelExpenses() {
       toast.success('Fuel log recorded. Vehicle efficiency & expenses updated!');
       setFuelOpen(false);
       setSelectedVehicleOdo(null);
-      reset();
+      resetFuel();
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to record purchase.');
@@ -126,9 +139,9 @@ export default function FuelExpenses() {
         ...data,
         vehicle_id: data.vehicle_id ? parseInt(data.vehicle_id) : null
       });
-      toast.toast ? toast.toast('Expense recorded!') : toast.success('Expense successfully logged in ledger.');
+      toast.success('Expense successfully logged in ledger.');
       setExpenseOpen(false);
-      reset();
+      resetExp();
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to record expense.');
@@ -331,7 +344,7 @@ export default function FuelExpenses() {
 
       {/* Modal: Log Fuel Purchase */}
       <Modal isOpen={fuelOpen} onClose={() => { setFuelOpen(false); setSelectedVehicleOdo(null); }} title="Log Fuel Purchase">
-        <form onSubmit={handleForm(onFuelSubmit)} className="space-y-4">
+        <form onSubmit={handleFuelSubmit(onFuelSubmit)} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle</label>
             <select
@@ -361,7 +374,7 @@ export default function FuelExpenses() {
                 className="glass-input"
                 {...register('fuel_quantity', { required: 'Quantity required', min: { value: 0.01, message: 'Must be > 0' } })}
               />
-              {errors.fuel_quantity && <p className="text-red-400 text-[10px] mt-1">{errors.fuel_quantity.message}</p>}
+              {fuelErrors.fuel_quantity && <p className="text-red-400 text-[10px] mt-1">{fuelErrors.fuel_quantity.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Cost (₹ INR)</label>
@@ -372,7 +385,7 @@ export default function FuelExpenses() {
                 className="glass-input"
                 {...register('fuel_cost', { required: 'Cost required', min: { value: 0.01, message: 'Must be > 0' } })}
               />
-              {errors.fuel_cost && <p className="text-red-400 text-[10px] mt-1">{errors.fuel_cost.message}</p>}
+              {fuelErrors.fuel_cost && <p className="text-red-400 text-[10px] mt-1">{fuelErrors.fuel_cost.message}</p>}
             </div>
           </div>
 
@@ -386,7 +399,7 @@ export default function FuelExpenses() {
                 className="glass-input"
                 {...register('odometer', { required: 'Odometer required' })}
               />
-              {errors.odometer && <p className="text-red-400 text-[10px] mt-1">{errors.odometer.message}</p>}
+              {fuelErrors.odometer && <p className="text-red-400 text-[10px] mt-1">{fuelErrors.odometer.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Purchase Date</label>
@@ -408,11 +421,11 @@ export default function FuelExpenses() {
 
       {/* Modal: Log Expense Entry */}
       <Modal isOpen={expenseOpen} onClose={() => setExpenseOpen(false)} title="Record Operational Expense">
-        <form onSubmit={handleForm(onExpenseSubmit)} className="space-y-4">
+        <form onSubmit={handleExpSubmit(onExpenseSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Expense Category</label>
-              <select className="glass-input cursor-pointer" {...register('type', { required: true })}>
+              <select className="glass-input cursor-pointer" {...registerExp('type', { required: true })}>
                 <option value="Toll" className="bg-darkbg-sidebar">Toll Fees</option>
                 <option value="Repair" className="bg-darkbg-sidebar">Minor Parts/Repair</option>
                 <option value="Insurance" className="bg-darkbg-sidebar">Insurance Cost</option>
@@ -421,7 +434,7 @@ export default function FuelExpenses() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Associated Vehicle</label>
-              <select className="glass-input cursor-pointer" {...register('vehicle_id')}>
+              <select className="glass-input cursor-pointer" {...registerExp('vehicle_id')}>
                 <option value="" className="bg-darkbg-sidebar">No vehicle (General)</option>
                  {vehicles.map(v => (
                   <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">{v.name}</option>
@@ -438,7 +451,7 @@ export default function FuelExpenses() {
                 step="0.01"
                 placeholder="e.g. 120"
                 className="glass-input"
-                {...register('amount', { required: 'Amount required' })}
+                {...registerExp('amount', { required: 'Amount required' })}
               />
             </div>
             <div>
@@ -447,7 +460,7 @@ export default function FuelExpenses() {
                 type="date"
                 className="glass-input"
                 defaultValue={new Date().toISOString().split('T')[0]}
-                {...register('date', { required: true })}
+                {...registerExp('date', { required: true })}
               />
             </div>
           </div>
@@ -458,7 +471,7 @@ export default function FuelExpenses() {
               type="text"
               placeholder="e.g. Bimonthly vehicle insurance premium..."
               className="glass-input"
-              {...register('description')}
+              {...registerExp('description')}
             />
           </div>
 

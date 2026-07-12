@@ -64,13 +64,6 @@ exports.createFuelLog = async (req, res) => {
     const qty = parseFloat(fuel_quantity);
     const cost = parseFloat(fuel_cost);
 
-    // Odometer checking
-    if (currentOdo < parseFloat(vehicle.current_odometer)) {
-      return res.status(400).json({ 
-        message: `Odometer reading (${currentOdo} km) cannot be less than vehicle's current odometer (${vehicle.current_odometer} km).` 
-      });
-    }
-
     // 2. Fetch the previous fuel log to calculate mileage
     const prevLog = await FuelLog.findOne({ vehicle: vehicle_id, odometer: { $lt: currentOdo } })
       .sort({ odometer: -1 });
