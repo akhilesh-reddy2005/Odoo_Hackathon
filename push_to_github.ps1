@@ -1,8 +1,8 @@
 # PowerShell Script to Push TransitOps to GitHub
 
-Write-Host "==============================================" -ForegroundColor Orange
-Write-Host "TransitOps GitHub Publisher" -ForegroundColor Orange
-Write-Host "==============================================" -ForegroundColor Orange
+Write-Host "==============================================" -ForegroundColor Yellow
+Write-Host "TransitOps GitHub Publisher" -ForegroundColor Yellow
+Write-Host "==============================================" -ForegroundColor Yellow
 
 # Check if Git is installed
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -45,11 +45,11 @@ if ($remotes -contains "origin") {
     git remote add origin https://github.com/akhilesh-reddy2005/Odoo_Hackathon.git
 }
 
-# Push files to GitHub
-Write-Host "Pushing files to GitHub (https://github.com/akhilesh-reddy2005/Odoo_Hackathon.git)..." -ForegroundColor Orange
+# Push files to GitHub (Force push to overwrite existing files on remote)
+Write-Host "Pushing files to GitHub (https://github.com/akhilesh-reddy2005/Odoo_Hackathon.git)..." -ForegroundColor Yellow
 Write-Host "Note: If prompted, please complete GitHub authentication in the terminal or browser prompt." -ForegroundColor Yellow
 
-git push -u origin main
+git push -f -u origin main
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "==============================================" -ForegroundColor Green
