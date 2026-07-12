@@ -1,15 +1,16 @@
 # TransitOps | Transport Operations Management Platform
 
-TransitOps is a production-quality, enterprise-grade ERP-like logistical dashboard designed for Fleet, Driver, Trip, Maintenance, Fuel logs, and Financial Expenses Operations. It features a stunning glassmorphic dark theme built with React 19, Tailwind CSS, Express, and MySQL.
+TransitOps is a production-quality, enterprise-grade ERP logistical dashboard designed for managing Fleet assets, Driver safety, Trip scheduling, Maintenance tickets, Fuel registries, and Financial Expenses. It features a glassmorphic dark theme built with React 19, Tailwind CSS, Express, and MongoDB.
 
 ---
 
 ## 🛠️ Technology Stack
 *   **Frontend**: React 19, Vite, Tailwind CSS, React Router v6, Axios, React Hook Form, Recharts, Lucide Icons, React Hot Toast
 *   **Backend**: Node.js, Express.js
-*   **Database**: MySQL
+*   **Database**: MongoDB (via Mongoose ODM)
 *   **Authentication**: JWT, bcryptjs
 *   **Architecture**: MVC (Model-View-Controller)
+*   **Currency Standard**: Indian Rupee (₹ INR)
 
 ---
 
@@ -30,31 +31,34 @@ TransitOps/
 │   ├── vite.config.js          # Port setup & API proxying config
 │   └── package.json
 │
-├── server/                     # Backend Node/Express API
-│   ├── config/                 # db.js Connection pool
-│   ├── controllers/            # Auth, Fleet, Drivers, Trips, Repairs controllers
+│── server/                     # Backend Node/Express API
+│   ├── config/                 # db.js Mongoose connection config
+│   ├── controllers/            # Auth, Fleet, Drivers, Trips, Maintenance, Fuel, Analytics controllers
 │   ├── middleware/             # Auth JWT check, Role matrix check
-│   ├── models/                 # schema.sql, seed.sql
-│   ├── routes/                 # Express route configs
+│   ├── models/                 # Mongoose collection models (Role, User, Vehicle, Driver, Trip, etc.)
+│   ├── routes/                 # Express route configurations
 │   ├── server.js               # Express server entry point
 │   └── package.json
-└── README.md
+│
+└── push_to_github.ps1          # GitHub publishing script
 ```
 
 ---
 
 ## 🚀 Installation & Local Setup
 
-### 1. Database Setup
-1. Open your MySQL client shell or tool (e.g. MySQL Workbench, command line, etc.)
-2. Import the schema to create the database:
-   ```bash
-   mysql -u root -p < server/models/schema.sql
+### 1. Database Setup & Seeding
+1. Make sure your MongoDB instance is running locally (`mongodb://localhost:27017`) or you have a remote MongoDB Atlas cluster connection string.
+2. In the `server/.env` file, configure your `MONGO_URI` connection string:
+   ```env
+   MONGO_URI=mongodb://localhost:27017/transitops_db
    ```
-3. Import the seed data to pre-populate roles, users, vehicles, drivers, trips, fuel, and expenses:
+3. Navigate to the `server/` directory and seed the database collections with mock data (Roles, Admin/Manager users, Vehicles, Drivers, Trips, Maintenance logs, and Expenses):
    ```bash
-   mysql -u root -p < server/models/seed.sql
+   cd server
+   node models/seed.js
    ```
+   *Note: If using MongoDB Atlas, verify that your client IP address is added to your cluster's Security Whitelist (`0.0.0.0/0` is recommended for demo deployments).*
 
 ### 2. Backend Server Setup
 1. Navigate to the backend directory:
@@ -65,28 +69,18 @@ TransitOps/
    ```bash
    npm install
    ```
-3. Configure the environment variables in `server/.env`. Adjust database host, port, user, or password if needed:
-   ```env
-   PORT=5000
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=yourpassword
-   DB_NAME=transitops_db
-   JWT_SECRET=transitops_super_secret_jwt_key_2026_keyphrase
-   JWT_EXPIRES_IN=7d
-   ```
-4. Boot up the developer server (uses nodemon for auto-reloading):
+3. Boot up the developer server (uses nodemon for auto-reloading):
    ```bash
    npm run dev
    ```
-   *The server should print `Database Connected Successfully` and listen on port 5000.*
+   *The server should print `MongoDB Connected Successfully` and listen on port 5000.*
 
 ### 3. Frontend Client Setup
 1. Open a new terminal and navigate to the frontend directory:
    ```bash
    cd client
    ```
-2. Install React dependencies (use --legacy-peer-deps for React 19 peer resolutions):
+2. Install React dependencies (use `--legacy-peer-deps` to bypass React 19 peer constraints):
    ```bash
    npm install --legacy-peer-deps
    ```
@@ -106,18 +100,22 @@ You can log in immediately using any of the seeded roles (all passwords are set 
     *   *Permissions: Complete access to all screens and configuration of the Role Permission Matrix.*
 *   **Fleet Manager**:
     *   Username: `manager` | Password: `password123`
-    *   *Permissions: Manage fleet, schedule routes, handle fuel logs and maintenance tickets.*
+    *   *Permissions: Manage fleet assets, schedule routes, handle fuel logs and maintenance tickets.*
 *   **Safety Officer**:
     *   Username: `safety` | Password: `password123`
-    *   *Permissions: Manage drivers credentials, safety ratings, compliance alerts.*
+    *   *Permissions: Manage drivers credentials, safety ratings, license expiration alerts.*
 *   **Financial Analyst**:
     *   Username: `finance` | Password: `password123`
     *   *Permissions: Fuel registries, expenses ledger, financial operational analytics.*
+*   **Driver**:
+    *   Username: `driver_john` | Password: `password123`
+    *   *Permissions: View assigned route schedules, log trip mileages.*
 
 ---
 
 ## 💡 Key Highlights & Business Rules
-*   **Trip lifecycle validations**: Retired/in-shop trucks or suspended/expired drivers are blocked during trip dispatch.
-*   **Automated operational updates**: Dispatching/completing/cancelling trips automatically synchronizes vehicle and driver duty statuses.
-*   **Dynamic score engines**: Fleet Health Score (based on maintenance cost & age) and Driver Performance Score (safety logs & fuel efficiency).
-*   **Administrative control deck**: Live notifications center, activity audits trail, CSV reporting, and Role-Based Access Matrix.
+*   **Indian Rupee Currency System**: All costs (acquisitions, repairs, fuel, tolls, ROIs, and dashboards) are calculated and displayed in Indian Rupees (`₹`).
+*   **Trip Lifecycle Validations**: Retired/in-shop trucks or suspended/expired drivers are blocked during trip dispatch.
+*   **Automated Operational Updates**: Dispatching/completing/cancelling trips automatically synchronizes vehicle and driver duty statuses.
+*   **Dynamic Score Engines**: Fleet Health Score (based on maintenance cost & age) and Driver Performance Score (safety logs & fuel efficiency).
+*   **Administrative Control Deck**: Live notifications center, activity audits trail, CSV reporting, and Role-Based Access Matrix.
