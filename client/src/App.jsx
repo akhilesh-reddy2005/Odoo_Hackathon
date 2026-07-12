@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Fleet from './pages/Fleet';
 import Drivers from './pages/Drivers';
 import Trips from './pages/Trips';
+import TripDetails from './pages/TripDetails';
 import Maintenance from './pages/Maintenance';
 import FuelExpenses from './pages/FuelExpenses';
 import Analytics from './pages/Analytics';
@@ -58,6 +59,14 @@ export default function App() {
               element={
                 <ProtectedRoute requiredPermission="trips">
                   <Trips />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="trips/:id" 
+              element={
+                <ProtectedRoute requiredPermission="trips">
+                  <TripDetails />
                 </ProtectedRoute>
               } 
             />

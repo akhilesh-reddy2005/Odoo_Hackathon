@@ -45,6 +45,14 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     enum: ['Available', 'On Trip', 'In Shop', 'Retired'],
     default: 'Available'
+  },
+  currentLocation: {
+    latitude: { type: Number, default: 0 },
+    longitude: { type: Number, default: 0 }
+  },
+  lastKnownLocation: {
+    latitude: { type: Number, default: 0 },
+    longitude: { type: Number, default: 0 }
   }
 }, {
   timestamps: true

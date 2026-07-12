@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Plus, 
@@ -16,19 +17,39 @@ import {
   Calendar,
   AlertTriangle,
   Play,
-  FileText
+  FileText,
+  Compass
 } from 'lucide-react';
+import LeafletMap from '../components/LeafletMap';
 
-import { tripService, vehicleService, driverService } from '../services/api';
+import { tripService, vehicleService, driverService, mapsService } from '../services/api';
 import { TableSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 
+
 export default function Trips() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+
+  // ORS Autocomplete States
+  const [sourceQuery, setSourceQuery] = useState('');
+  const [destQuery, setDestQuery] = useState('');
+  const [sourceSuggestions, setSourceSuggestions] = useState([]);
+  const [destSuggestions, setDestSuggestions] = useState([]);
+  const [showSourceDrop, setShowSourceDrop] = useState(false);
+  const [showDestDrop, setShowDestDrop] = useState(false);
+  const [autocompleteLoading, setAutocompleteLoading] = useState({ source: false, dest: false });
+  const sourceDebounce = React.useRef(null);
+  const destDebounce = React.useRef(null);
+  const [sourceLocation, setSourceLocation] = useState(null);
+  const [destinationLocation, setDestinationLocation] = useState(null);
+  const [routes, setRoutes] = useState([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const [loadingDirections, setLoadingDirections] = useState(false);
 
   // Dropdown options lists
   const [vehicles, setVehicles] = useState([]);
@@ -51,12 +72,108 @@ export default function Trips() {
   const [completionOdo, setCompletionOdo] = useState('');
   const [selectedVehicleTargetOdo, setSelectedVehicleTargetOdo] = useState(0);
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
 
   // Watch fields for dynamic client-side cargo validations
   const watchedVehicleId = watch('vehicle_id');
   const watchedCargoWeight = watch('cargo_weight');
   const [capacityWarning, setCapacityWarning] = useState('');
+
+
+  // Debounced ORS autocomplete handlers
+  const handleSourceInput = (e) => {
+    const val = e.target.value;
+    setSourceQuery(val);
+    setSourceLocation(null);
+    setValue('source', '');
+    if (sourceDebounce.current) clearTimeout(sourceDebounce.current);
+    if (val.length < 2) { setSourceSuggestions([]); return; }
+    sourceDebounce.current = setTimeout(async () => {
+      setAutocompleteLoading(p => ({ ...p, source: true }));
+      try {
+        const results = await mapsService.autocomplete(val);
+        setSourceSuggestions(results);
+        setShowSourceDrop(true);
+      } catch (_) {}
+      finally { setAutocompleteLoading(p => ({ ...p, source: false })); }
+    }, 350);
+  };
+
+  const handleDestInput = (e) => {
+    const val = e.target.value;
+    setDestQuery(val);
+    setDestinationLocation(null);
+    setValue('destination', '');
+    if (destDebounce.current) clearTimeout(destDebounce.current);
+    if (val.length < 2) { setDestSuggestions([]); return; }
+    destDebounce.current = setTimeout(async () => {
+      setAutocompleteLoading(p => ({ ...p, dest: true }));
+      try {
+        const results = await mapsService.autocomplete(val);
+        setDestSuggestions(results);
+        setShowDestDrop(true);
+      } catch (_) {}
+      finally { setAutocompleteLoading(p => ({ ...p, dest: false })); }
+    }, 350);
+  };
+
+  const selectSource = (s) => {
+    setSourceQuery(s.label);
+    setSourceLocation({ name: s.name || s.label, address: s.label, latitude: s.latitude, longitude: s.longitude });
+    setValue('source', s.label);
+    setShowSourceDrop(false);
+    setSourceSuggestions([]);
+  };
+
+  const selectDest = (s) => {
+    setDestQuery(s.label);
+    setDestinationLocation({ name: s.name || s.label, address: s.label, latitude: s.latitude, longitude: s.longitude });
+    setValue('destination', s.label);
+    setShowDestDrop(false);
+    setDestSuggestions([]);
+  };
+
+  // Load directions routes automatically when locations are picked
+  useEffect(() => {
+    if (sourceLocation && destinationLocation) {
+      const fetchRoutes = async () => {
+        setLoadingDirections(true);
+        try {
+          const origin = `${sourceLocation.latitude},${sourceLocation.longitude}`;
+          const destination = `${destinationLocation.latitude},${destinationLocation.longitude}`;
+          const data = await mapsService.getDirections(origin, destination, true); // fetch alternatives
+          setRoutes(data);
+          setSelectedRouteIndex(0);
+          if (data.length > 0) {
+            setValue('planned_distance', parseFloat(data[0].distance.toFixed(1)));
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error('Failed to calculate route directions.');
+        } finally {
+          setLoadingDirections(false);
+        }
+      };
+      fetchRoutes();
+    }
+  }, [sourceLocation, destinationLocation]);
+
+  const handleRouteChange = (index) => {
+    setSelectedRouteIndex(index);
+    if (routes[index]) {
+      setValue('planned_distance', parseFloat(routes[index].distance.toFixed(1)));
+    }
+  };
+
+  const resetState = () => {
+    setSourceLocation(null);
+    setDestinationLocation(null);
+    setRoutes([]);
+    setSelectedRouteIndex(0);
+    setSourceQuery('');
+    setDestQuery('');
+    reset();
+  };
 
   // Update capacity warning dynamically
   useEffect(() => {
@@ -102,10 +219,26 @@ export default function Trips() {
   // Create Trip Submit
   const onCreateSubmit = async (data) => {
     try {
-      await tripService.create(data);
+      if (!sourceLocation || !destinationLocation || routes.length === 0) {
+        toast.error('Please select valid origin/destination locations with calculated route.');
+        return;
+      }
+      const activeRoute = routes[selectedRouteIndex];
+      const payload = {
+        vehicle_id: data.vehicle_id,
+        driver_id: data.driver_id,
+        sourceLocation,
+        destinationLocation,
+        plannedDistance: activeRoute.distance,
+        estimatedDuration: activeRoute.duration,
+        routePolyline: activeRoute.polyline,
+        cargo_weight: parseFloat(data.cargo_weight),
+        notes: data.notes
+      };
+      await tripService.create(payload);
       toast.success('Trip planned in Draft state successfully.');
       setCreateOpen(false);
-      reset();
+      resetState();
       loadTrips();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create trip plan.');
@@ -308,6 +441,15 @@ export default function Trips() {
                           </button>
                         )}
 
+                        {/* Live Tracking Map page link */}
+                        <button
+                          onClick={() => navigate(`/trips/${t.id || t._id}`)}
+                          className="p-1.5 bg-white/5 border border-white/10 hover:border-brand-orange/30 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all h-8 w-8 flex items-center justify-center"
+                          title="View Live Tracker & Map"
+                        >
+                          <Compass className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
+                        </button>
+
                         {/* Details timeline */}
                         <button
                           onClick={() => { setSelectedTrip(t); setTimelineOpen(true); }}
@@ -361,7 +503,7 @@ export default function Trips() {
       )}
 
       {/* Modal: Plan New Trip */}
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Schedule Dispatch Route">
+      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); resetState(); }} title="Schedule Dispatch Route" size="lg">
         <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -403,21 +545,57 @@ export default function Trips() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Origin Location</label>
-              <input
-                type="text"
-                placeholder="e.g. Dallas, TX"
-                className="glass-input"
-                {...register('source', { required: 'Origin is required' })}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search origin address..."
+                  className="glass-input w-full"
+                  value={sourceQuery}
+                  onChange={handleSourceInput}
+                  onFocus={() => sourceSuggestions.length > 0 && setShowSourceDrop(true)}
+                  onBlur={() => setTimeout(() => setShowSourceDrop(false), 200)}
+                  autoComplete="off"
+                />
+                {autocompleteLoading.source && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500">...</span>}
+                {showSourceDrop && sourceSuggestions.length > 0 && (
+                  <ul className="absolute z-50 left-0 right-0 mt-1 bg-[#0e1420] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-[180px] overflow-y-auto">
+                    {sourceSuggestions.map((s, i) => (
+                      <li key={i} onMouseDown={() => selectSource(s)}
+                        className="px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer transition-colors truncate">
+                        {s.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <input type="hidden" {...register('source', { required: 'Origin is required' })} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Destination Hub</label>
-              <input
-                type="text"
-                placeholder="e.g. Phoenix, AZ"
-                className="glass-input"
-                {...register('destination', { required: 'Destination is required' })}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search destination address..."
+                  className="glass-input w-full"
+                  value={destQuery}
+                  onChange={handleDestInput}
+                  onFocus={() => destSuggestions.length > 0 && setShowDestDrop(true)}
+                  onBlur={() => setTimeout(() => setShowDestDrop(false), 200)}
+                  autoComplete="off"
+                />
+                {autocompleteLoading.dest && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500">...</span>}
+                {showDestDrop && destSuggestions.length > 0 && (
+                  <ul className="absolute z-50 left-0 right-0 mt-1 bg-[#0e1420] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-[180px] overflow-y-auto">
+                    {destSuggestions.map((s, i) => (
+                      <li key={i} onMouseDown={() => selectDest(s)}
+                        className="px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer transition-colors truncate">
+                        {s.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <input type="hidden" {...register('destination', { required: 'Destination is required' })} />
             </div>
           </div>
 
@@ -437,12 +615,84 @@ export default function Trips() {
               <input
                 type="number"
                 step="0.01"
-                placeholder="e.g. 600"
-                className="glass-input"
+                placeholder="Auto-calculated distance"
+                className="glass-input bg-white/5 cursor-not-allowed border-dashed"
+                readOnly
                 {...register('planned_distance', { required: 'Distance is required' })}
               />
             </div>
           </div>
+
+          {/* Interactive Map & Alternatives Selection */}
+          {sourceLocation && destinationLocation && routes.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
+              <div className="h-[200px] rounded-lg overflow-hidden relative border border-white/10">
+                <LeafletMap
+                  center={{ lat: sourceLocation.latitude, lng: sourceLocation.longitude }}
+                  zoom={6}
+                  height="100%"
+                  autoBounds
+                  markers={[
+                    { lat: sourceLocation.latitude, lng: sourceLocation.longitude, label: 'A', color: '#22c55e' },
+                    { lat: destinationLocation.latitude, lng: destinationLocation.longitude, label: 'B', color: '#3b82f6' }
+                  ]}
+                  polylines={routes.map((route, rIdx) => ({
+                    points: Array.isArray(route.polyline) ? route.polyline : [],
+                    color: rIdx === selectedRouteIndex ? '#f97316' : '#64748b',
+                    weight: rIdx === selectedRouteIndex ? 5 : 2.5,
+                    opacity: rIdx === selectedRouteIndex ? 0.9 : 0.4
+                  }))}
+                />
+              </div>
+
+              <div className="space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block">Available Routes</span>
+                  <div className="max-h-[100px] overflow-y-auto space-y-1.5 pr-1">
+                    {routes.map((route, rIdx) => {
+                      const isSelected = rIdx === selectedRouteIndex;
+                      const delayMin = Math.round(route.trafficDelay / 60);
+                      return (
+                        <div
+                          key={rIdx}
+                          onClick={() => handleRouteChange(rIdx)}
+                          className={`p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-brand-orange/15 border-brand-orange text-white'
+                              : 'bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex justify-between font-bold">
+                            <span className="truncate max-w-[120px]">via {route.summary}</span>
+                            <span>{route.distance.toFixed(1)} km</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[9px] text-gray-500 mt-0.5">
+                            <span>Est: {Math.round(route.duration / 60)} mins</span>
+                            {delayMin > 0 && (
+                              <span className="bg-red-500/10 text-red-400 border border-red-500/25 px-1 py-0.5 rounded text-[8px] font-bold">
+                                +{delayMin}m delay
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
+                  <div className="p-1.5 bg-white/5 rounded-lg border border-white/5 text-center">
+                    <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest block">Dest. Weather</span>
+                    <span className="text-[9px] font-bold text-white block mt-0.5">Sunny &bull; 24°C</span>
+                  </div>
+                  <div className="p-1.5 bg-brand-orange/5 rounded-lg border border-brand-orange/10 text-center">
+                    <span className="text-[7px] text-brand-orange font-bold uppercase tracking-widest block">Nearest Fuel</span>
+                    <span className="text-[9px] font-bold text-white block mt-0.5 font-sans">Shell (0.8km)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {capacityWarning && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-start gap-2 animate-pulse">

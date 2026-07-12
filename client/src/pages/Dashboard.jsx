@@ -14,18 +14,26 @@ import {
   ChevronRight, 
   Info,
   Calendar,
-  Layers
+  Layers,
+  Compass
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import LeafletMap from '../components/LeafletMap';
 
 import { analyticsService, tripService, fuelService, maintenanceService, vehicleService, driverService } from '../services/api';
 import { CardSkeleton, TableSkeleton } from '../components/Skeleton';
 import Modal from '../components/Modal';
 
+
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  
+
+  
+  const [activeVehicleMarker, setActiveVehicleMarker] = useState(null);
   
   // Modals state
   const [fuelOpen, setFuelOpen] = useState(false);
@@ -55,6 +63,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats();
+
+    // Poll vehicle locations every 5 seconds to keep dashboard map live
+    const interval = setInterval(async () => {
+      try {
+        const fleet = await vehicleService.getAll({ limit: 100 });
+        setVehicles(fleet.vehicles || []);
+      } catch (err) {
+        console.error("Error polling vehicle locations on dashboard:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Quick Action Fuel Submit
@@ -190,6 +210,49 @@ export default function Dashboard() {
             <Wrench className="h-4 w-4 text-brand-orange transition-transform duration-200 group-hover:scale-110" />
             <span className="font-semibold text-xs">Raise Maintenance</span>
           </button>
+        </div>
+      </section>
+
+      {/* Interactive Fleet Map Section */}
+      <section className="glass-card p-6 border border-white/5 space-y-4 animate-in fade-in duration-300">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/5 pb-4">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Compass className="h-4.5 w-4.5 text-brand-orange animate-pulse" />
+              Real-time Fleet Operations Map
+            </h3>
+            <p className="text-[10px] text-gray-500 font-semibold uppercase mt-0.5">Live vehicle tracking and dispatch diagnostics</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-[9px] font-bold text-gray-400">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white/10"></span> Available</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white/10"></span> On Trip</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white/10"></span> Maintenance</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af] border border-white/10"></span> Retired</span>
+          </div>
+        </div>
+
+        <div className="h-[380px] rounded-xl overflow-hidden border border-white/10 relative">
+          <LeafletMap
+            center={{ lat: 39.8283, lng: -98.5795 }}
+            zoom={4}
+            height="100%"
+            markers={vehicles
+              .filter(v => v.currentLocation && v.currentLocation.latitude !== 0)
+              .map(vehicle => {
+                let color = '#9ca3af';
+                if (vehicle.status === 'Available') color = '#22c55e';
+                else if (vehicle.status === 'On Trip') color = '#3b82f6';
+                else if (vehicle.status === 'In Shop') color = '#f97316';
+                return {
+                  lat: vehicle.currentLocation.latitude,
+                  lng: vehicle.currentLocation.longitude,
+                  color,
+                  title: `${vehicle.name} (${vehicle.registration_number}) — ${vehicle.status}`,
+                  size: 16
+                };
+              })
+            }
+          />
         </div>
       </section>
 

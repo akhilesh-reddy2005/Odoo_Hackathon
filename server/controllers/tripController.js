@@ -92,9 +92,23 @@ exports.getTripById = async (req, res) => {
 
 // Create a new Trip (Draft state)
 exports.createTrip = async (req, res) => {
-  const { vehicle_id, driver_id, source, destination, cargo_weight, planned_distance, notes } = req.body;
+  const { 
+    vehicle_id, 
+    driver_id, 
+    sourceLocation, 
+    destinationLocation, 
+    plannedDistance, 
+    estimatedDuration, 
+    routePolyline, 
+    cargo_weight, 
+    notes 
+  } = req.body;
 
-  if (!vehicle_id || !driver_id || !source || !destination || !cargo_weight || !planned_distance) {
+  const sourceVal = sourceLocation ? (sourceLocation.name || sourceLocation.address) : req.body.source;
+  const destinationVal = destinationLocation ? (destinationLocation.name || destinationLocation.address) : req.body.destination;
+  const distanceVal = plannedDistance || req.body.planned_distance;
+
+  if (!vehicle_id || !driver_id || !sourceVal || !destinationVal || !cargo_weight || !distanceVal) {
     return res.status(400).json({ message: 'Missing required trip fields.' });
   }
 
@@ -114,10 +128,14 @@ exports.createTrip = async (req, res) => {
     const newTrip = await Trip.create({
       vehicle: vehicle_id,
       driver: driver_id,
-      source,
-      destination,
-      cargo_weight: parseFloat(cargo_weight),
-      planned_distance: parseFloat(planned_distance),
+      source: sourceVal,
+      destination: destinationVal,
+      sourceLocation: sourceLocation || { name: sourceVal, address: sourceVal, latitude: 0, longitude: 0 },
+      destinationLocation: destinationLocation || { name: destinationVal, address: destinationVal, latitude: 0, longitude: 0 },
+      planned_distance: parseFloat(distanceVal),
+      plannedDistance: parseFloat(distanceVal),
+      estimatedDuration: parseFloat(estimatedDuration || 0),
+      routePolyline: routePolyline || '',
       status: 'Draft',
       notes: notes || ''
     });
@@ -302,7 +320,21 @@ exports.cancelTrip = async (req, res) => {
 // Edit trip before dispatch
 exports.updateTrip = async (req, res) => {
   const { id } = req.params;
-  const { vehicle_id, driver_id, source, destination, cargo_weight, planned_distance, notes } = req.body;
+  const { 
+    vehicle_id, 
+    driver_id, 
+    sourceLocation, 
+    destinationLocation, 
+    plannedDistance, 
+    estimatedDuration, 
+    routePolyline, 
+    cargo_weight, 
+    notes 
+  } = req.body;
+
+  const sourceVal = sourceLocation ? (sourceLocation.name || sourceLocation.address) : req.body.source;
+  const destinationVal = destinationLocation ? (destinationLocation.name || destinationLocation.address) : req.body.destination;
+  const distanceVal = plannedDistance || req.body.planned_distance;
 
   try {
     const trip = await Trip.findById(id);
@@ -323,10 +355,15 @@ exports.updateTrip = async (req, res) => {
     await Trip.findByIdAndUpdate(id, {
       vehicle: vehicle_id,
       driver: driver_id,
-      source,
-      destination,
+      source: sourceVal,
+      destination: destinationVal,
+      sourceLocation: sourceLocation || { name: sourceVal, address: sourceVal, latitude: 0, longitude: 0 },
+      destinationLocation: destinationLocation || { name: destinationVal, address: destinationVal, latitude: 0, longitude: 0 },
+      planned_distance: parseFloat(distanceVal),
+      plannedDistance: parseFloat(distanceVal),
+      estimatedDuration: parseFloat(estimatedDuration || 0),
+      routePolyline: routePolyline || '',
       cargo_weight: parseFloat(cargo_weight),
-      planned_distance: parseFloat(planned_distance),
       notes: notes || ''
     });
 

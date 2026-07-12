@@ -3,30 +3,40 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { 
   Search, 
+  Filter, 
   ArrowUpDown, 
   Download, 
   Plus, 
   Edit, 
   Trash2, 
   Eye, 
-  ShieldAlert, 
-  UserCheck, 
-  Calendar, 
-  Phone, 
-  FileText,
-  TrendingUp,
+  User, 
+  Phone,
+  Calendar,
   Award,
-  Milestone
+  Milestone,
+  HeartPulse,
+  MapPin,
+  Navigation,
+  Compass,
+  Clock,
+  ShieldAlert,
+  UserCheck
 } from 'lucide-react';
+import LeafletMap from '../components/LeafletMap';
 
 import { driverService } from '../services/api';
 import { TableSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 
+
+
 export default function Drivers() {
   const [loading, setLoading] = useState(true);
   const [drivers, setDrivers] = useState([]);
+  
+
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -514,7 +524,7 @@ export default function Drivers() {
       </Modal>
 
       {/* Modal: Driver Details & History */}
-      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Operator Performance Card" size="lg">
+      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Operator Performance Card & Active Route" size="lg">
         {detailLoading || !selectedDriver ? (
           <div className="py-12 flex justify-center"><div className="h-8 w-8 border-4 border-brand-orange/20 border-t-brand-orange rounded-full animate-spin"></div></div>
         ) : (
@@ -522,22 +532,136 @@ export default function Drivers() {
             {/* Quick Metrics */}
             <div className="grid grid-cols-4 gap-4">
               <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Perf Rating</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest font-sans">Perf Rating</span>
                 <span className="block text-lg font-extrabold text-white mt-1">{selectedDriver.performance_score}%</span>
               </div>
               <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Safety Score</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest font-sans">Safety Score</span>
                 <span className="block text-lg font-extrabold text-green-400 mt-1">{selectedDriver.safety_score}</span>
               </div>
               <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Completed Trips</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest font-sans">Completed Trips</span>
                 <span className="block text-lg font-extrabold text-white mt-1 font-mono">{selectedDriver.trip_count || 0}</span>
               </div>
               <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Fuel Economy</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest font-sans">Fuel Economy</span>
                 <span className="block text-lg font-extrabold text-amber-500 mt-1 font-mono text-sm">{selectedDriver.fuel_efficiency || 0} km/L</span>
               </div>
             </div>
+
+            {/* Active Assigned Route Section */}
+            {selectedDriver.status === 'On Trip' && selectedDriver.trip_history?.find(t => t.status === 'Dispatched') ? (() => {
+              const activeTrip = selectedDriver.trip_history.find(t => t.status === 'Dispatched');
+              const eta = activeTrip.dispatched_at && activeTrip.estimatedDuration
+                ? new Date(new Date(activeTrip.dispatched_at).getTime() + activeTrip.estimatedDuration * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : 'N/A';
+
+              const decodedPath = activeTrip.routePolyline ? (() => {
+                const poly = [];
+                let idx = 0, length = activeTrip.routePolyline.length;
+                let lt = 0, lg = 0;
+                while (idx < length) {
+                  let b, shift = 0, result = 0;
+                  do {
+                    b = activeTrip.routePolyline.charCodeAt(idx++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                  } while (b >= 0x20);
+                  let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                  lt += dlat;
+                  shift = 0;
+                  result = 0;
+                  do {
+                    b = activeTrip.routePolyline.charCodeAt(idx++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                  } while (b >= 0x20);
+                  let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                  lg += dlng;
+                  poly.push({ lat: lt / 1e5, lng: lg / 1e5 });
+                }
+                return poly;
+              })() : [];
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white/5 rounded-xl border border-white/5 animate-in fade-in duration-300">
+                  {/* Map Column */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1.5 pb-1 border-b border-white/5">
+                      <Compass className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
+                      Current Assigned Route Map
+                    </span>
+                    <div className="h-[200px] rounded-lg overflow-hidden border border-white/10 relative">
+                      {activeTrip.sourceLocation?.latitude ? (
+                        <LeafletMap
+                          center={{ lat: activeTrip.sourceLocation.latitude, lng: activeTrip.sourceLocation.longitude }}
+                          zoom={6}
+                          height="100%"
+                          autoBounds
+                          markers={[
+                            { lat: activeTrip.sourceLocation.latitude, lng: activeTrip.sourceLocation.longitude, label: 'A', color: '#22c55e' },
+                            { lat: activeTrip.destinationLocation.latitude, lng: activeTrip.destinationLocation.longitude, label: 'B', color: '#3b82f6' },
+                            ...(activeTrip.vehicle?.currentLocation?.latitude ? [{
+                              lat: activeTrip.vehicle.currentLocation.latitude,
+                              lng: activeTrip.vehicle.currentLocation.longitude,
+                              color: '#f97316', title: 'Vehicle Position', size: 14
+                            }] : [])
+                          ]}
+                          polylines={decodedPath.length > 0 ? [{ points: decodedPath, color: '#f97316', weight: 3.5, opacity: 0.85 }] : []}
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-slate-900 flex items-center justify-center text-xs text-gray-500">
+                          Failed to load live route preview.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Details Column */}
+                  <div className="space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1.5 pb-1 border-b border-white/5">
+                        <Navigation className="h-3.5 w-3.5 text-brand-orange" />
+                        Dispatch Details
+                      </span>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Route Path</span>
+                          <span className="font-bold text-white block mt-0.5">{activeTrip.source} &rarr; {activeTrip.destination}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Destination Hub Address</span>
+                          <span className="text-gray-300 block mt-0.5 truncate" title={activeTrip.destinationLocation?.address}>{activeTrip.destinationLocation?.address || activeTrip.destination}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="text-[8px] text-gray-500 font-bold uppercase block">Planned Distance</span>
+                            <span className="font-bold text-white font-mono text-[11px] block mt-0.5">{activeTrip.planned_distance} km</span>
+                          </div>
+                          <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="text-[8px] text-gray-500 font-bold uppercase block flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5 text-brand-orange" />
+                              Trip ETA
+                            </span>
+                            <span className="font-bold text-brand-orange font-mono text-[10px] block mt-0.5 truncate">{eta}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-xl text-[10px] text-blue-300 leading-normal flex items-start gap-2">
+                      <Compass className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <span>Operator is actively on duty and executing this dispatch route. GPS coordinates are refreshed dynamically.</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })() : (
+              <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center justify-center gap-2">
+                <Clock className="h-4.5 w-4.5 text-gray-500" />
+                No active dispatch routes currently assigned.
+              </div>
+            )}
 
             {/* Profile Logs */}
             <div className="space-y-3.5">
@@ -548,11 +672,11 @@ export default function Drivers() {
               {selectedDriver.trip_history?.length === 0 ? (
                 <p className="text-[11px] text-gray-500 py-4 text-center">No operations registered under this driver.</p>
               ) : (
-                <div className="space-y-2.5">
+                <div className="max-h-[160px] overflow-y-auto space-y-2.5 pr-1">
                   {selectedDriver.trip_history?.map(t => (
-                    <div key={t.id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs flex justify-between items-center gap-4">
+                    <div key={t.id || t._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs flex justify-between items-center gap-4">
                       <div>
-                        <p className="font-semibold text-white">{t.source} → {t.destination}</p>
+                        <p className="font-semibold text-white">{t.source} &rarr; {t.destination}</p>
                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Vehicle: {t.vehicle_name} ({t.registration_number})</p>
                       </div>
                       <div className="text-right">

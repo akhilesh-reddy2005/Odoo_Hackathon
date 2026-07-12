@@ -15,19 +15,27 @@ import {
   Layers,
   Wrench,
   Milestone,
-  HeartPulse
+  HeartPulse,
+  MapPin,
+  Navigation,
+  Compass
 } from 'lucide-react';
+import LeafletMap from '../components/LeafletMap';
 
 import { vehicleService } from '../services/api';
 import { TableSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 
+
+
 export default function Fleet() {
   const [loading, setLoading] = useState(true);
   const [vehicles, setVehicles] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+
+
 
   // Filter and Query states
   const [search, setSearch] = useState('');
@@ -543,7 +551,7 @@ export default function Fleet() {
       </Modal>
 
       {/* Modal: Vehicle Details & History */}
-      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Vehicle Operational Logs" size="lg">
+      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Vehicle Operational Logs & Live Status" size="lg">
         {detailLoading || !selectedVehicle ? (
           <div className="py-12 flex justify-center"><div className="h-8 w-8 border-4 border-brand-orange/20 border-t-brand-orange rounded-full animate-spin"></div></div>
         ) : (
@@ -564,29 +572,122 @@ export default function Fleet() {
               </div>
             </div>
 
+            {/* Advanced location details & Map preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2 border-b border-white/5 animate-in fade-in duration-300">
+              {/* Map Preview on Right */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5 pb-2 border-b border-white/5">
+                  <Compass className="h-4 w-4 text-brand-orange" />
+                  Real-time Map Preview
+                </h4>
+                <div className="h-[210px] rounded-xl overflow-hidden border border-white/10 relative">
+                  {selectedVehicle.currentLocation?.latitude ? (
+                    <LeafletMap
+                      center={{ lat: selectedVehicle.currentLocation.latitude, lng: selectedVehicle.currentLocation.longitude }}
+                      zoom={8}
+                      height="100%"
+                      markers={[
+                        {
+                          lat: selectedVehicle.currentLocation.latitude,
+                          lng: selectedVehicle.currentLocation.longitude,
+                          color: '#3b82f6',
+                          title: `Current: ${selectedVehicle.name}`,
+                          size: 16
+                        },
+                        ...(selectedVehicle.lastKnownLocation?.latitude &&
+                          (selectedVehicle.lastKnownLocation.latitude !== selectedVehicle.currentLocation.latitude ||
+                           selectedVehicle.lastKnownLocation.longitude !== selectedVehicle.currentLocation.longitude)
+                          ? [{ lat: selectedVehicle.lastKnownLocation.latitude, lng: selectedVehicle.lastKnownLocation.longitude, color: '#64748b', title: 'Last Known Location', size: 12 }]
+                          : [])
+                      ]}
+                      polylines={
+                        selectedVehicle.lastKnownLocation?.latitude &&
+                        (selectedVehicle.lastKnownLocation.latitude !== selectedVehicle.currentLocation.latitude ||
+                         selectedVehicle.lastKnownLocation.longitude !== selectedVehicle.currentLocation.longitude)
+                          ? [{ points: [
+                              { lat: selectedVehicle.lastKnownLocation.latitude, lng: selectedVehicle.lastKnownLocation.longitude },
+                              { lat: selectedVehicle.currentLocation.latitude, lng: selectedVehicle.currentLocation.longitude }
+                            ], color: '#64748b', weight: 2, opacity: 0.6, dashed: true }]
+                          : []
+                      }
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-slate-900 flex items-center justify-center text-xs text-gray-500">
+                      No coordinates logged for this transport vehicle.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Location Diagnostics on Left */}
+              <div className="space-y-4 justify-between flex flex-col">
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5 pb-2 border-b border-white/5">
+                    <Navigation className="h-4 w-4 text-brand-orange" />
+                    Operational GPS Details
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                      <span className="text-gray-500 font-medium">Current Location Coords</span>
+                      <span className="font-mono text-white">
+                        {selectedVehicle.currentLocation?.latitude ? `${selectedVehicle.currentLocation.latitude.toFixed(4)}, ${selectedVehicle.currentLocation.longitude.toFixed(4)}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                      <span className="text-gray-500 font-medium">Last Known Coords</span>
+                      <span className="font-mono text-white">
+                        {selectedVehicle.lastKnownLocation?.latitude ? `${selectedVehicle.lastKnownLocation.latitude.toFixed(4)}, ${selectedVehicle.lastKnownLocation.longitude.toFixed(4)}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                      <span className="text-gray-500 font-medium">Total Distance Travelled</span>
+                      <span className="font-mono text-white">
+                        {(selectedVehicle.trip_history?.filter(t => t.status === 'Completed').reduce((sum, t) => sum + (t.planned_distance || 0), 0) || 0).toLocaleString()} km
+                      </span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                      <span className="text-gray-500 font-medium">Total Completed Trips</span>
+                      <span className="font-mono text-white font-bold">
+                        {selectedVehicle.trip_history?.filter(t => t.status === 'Completed').length || 0} Trips
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-brand-orange/5 border border-brand-orange/10 rounded-xl flex items-start gap-2.5">
+                  <Truck className="h-4.5 w-4.5 text-brand-orange mt-0.5" />
+                  <div className="text-[10px] text-gray-400 font-medium leading-normal font-sans">
+                    Real-time diagnostics tracking is synchronized via active GPS simulation. Active vehicles transmit coordinates every 5 seconds.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Active Logs tabs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Trip Logs */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5 pb-2 border-b border-white/5">
                   <Milestone className="h-4 w-4 text-brand-orange" />
-                  Trip Logs
+                  Recent Trips
                 </h4>
                 {selectedVehicle.trip_history?.length === 0 ? (
                   <p className="text-[11px] text-gray-500 py-4 text-center">No trips logged on this vehicle.</p>
                 ) : (
-                  selectedVehicle.trip_history?.map(t => (
-                    <div key={t.id || t._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
-                      <div className="flex justify-between font-semibold text-white">
-                        <span>{t.source} → {t.destination}</span>
-                        <span className="font-mono text-gray-400">{t.planned_distance} km</span>
+                  <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1">
+                    {selectedVehicle.trip_history?.map(t => (
+                      <div key={t.id || t._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
+                        <div className="flex justify-between font-semibold text-white">
+                          <span>{t.source} → {t.destination}</span>
+                          <span className="font-mono text-gray-400">{t.planned_distance} km</span>
+                        </div>
+                        <div className="flex justify-between mt-1 text-[10px] text-gray-500 font-medium">
+                          <span>Driver: {t.driver_name}</span>
+                          <span className="uppercase text-brand-orange">{t.status}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between mt-1 text-[10px] text-gray-500 font-medium">
-                        <span>Driver: {t.driver_name}</span>
-                        <span className="uppercase text-brand-orange">{t.status}</span>
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -599,18 +700,20 @@ export default function Fleet() {
                 {selectedVehicle.maintenance_history?.length === 0 ? (
                   <p className="text-[11px] text-gray-500 py-4 text-center">No maintenance logs recorded.</p>
                 ) : (
-                  selectedVehicle.maintenance_history?.map(m => (
-                    <div key={m.id || m._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
-                      <div className="flex justify-between font-semibold text-white">
-                        <span>{m.issue}</span>
-                        <span className="font-mono text-gray-400">₹{m.actual_cost || m.estimated_cost}</span>
+                  <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1">
+                    {selectedVehicle.maintenance_history?.map(m => (
+                      <div key={m.id || m._id} className="p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
+                        <div className="flex justify-between font-semibold text-white">
+                          <span>{m.issue}</span>
+                          <span className="font-mono text-gray-400">₹{m.actual_cost || m.estimated_cost}</span>
+                        </div>
+                        <div className="flex justify-between mt-1 text-[10px] text-gray-500 font-medium">
+                          <span>Status: {m.status}</span>
+                          <span className="uppercase">{m.priority}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between mt-1 text-[10px] text-gray-500 font-medium">
-                        <span>Status: {m.status}</span>
-                        <span className="uppercase">{m.priority}</span>
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

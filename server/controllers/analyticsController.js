@@ -254,13 +254,84 @@ exports.getAnalyticsCharts = async (req, res) => {
       };
     }));
 
+    // 7. Most Travelled Routes
+    const mostTravelledRoutes = await Trip.aggregate([
+      { $match: { status: 'Completed' } },
+      {
+        $group: {
+          _id: { source: "$source", destination: "$destination" },
+          count: { $sum: 1 },
+          avgDistance: { $avg: "$planned_distance" }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      {
+        $project: {
+          _id: 0,
+          route: { $concat: ["$_id.source", " → ", "$_id.destination"] },
+          count: 1,
+          distance: { $round: ["$avgDistance", 1] }
+        }
+      }
+    ]);
+
+    // 8. Average distance & duration for completed trips
+    const avgStats = await Trip.aggregate([
+      { $match: { status: 'Completed' } },
+      {
+        $group: {
+          _id: null,
+          avgDistance: { $avg: "$planned_distance" },
+          avgDuration: { $avg: "$estimatedDuration" }
+        }
+      }
+    ]);
+    const averageDistance = avgStats.length > 0 ? parseFloat((avgStats[0].avgDistance || 0).toFixed(1)) : 0;
+    const averageDuration = avgStats.length > 0 ? parseFloat(((avgStats[0].avgDuration || 0) / 60).toFixed(1)) : 0; // in minutes
+
+    // 9. Heatmap points of visited locations
+    const heatmapPointsRaw = await Trip.aggregate([
+      { $match: { status: { $in: ['Dispatched', 'Completed'] } } },
+      {
+        $project: {
+          points: [
+            { lat: "$sourceLocation.latitude", lng: "$sourceLocation.longitude" },
+            { lat: "$destinationLocation.latitude", lng: "$destinationLocation.longitude" }
+          ]
+        }
+      },
+      { $unwind: "$points" },
+      {
+        $group: {
+          _id: { lat: "$points.lat", lng: "$points.lng" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          lat: "$_id.lat",
+          lng: "$_id.lng",
+          weight: "$count"
+        }
+      }
+    ]);
+
+    // Clean up any 0 values (for un-geocoded or default trips)
+    const heatmapPoints = heatmapPointsRaw.filter(p => p.lat !== 0 && p.lng !== 0);
+
     res.json({
       monthlyTrips: monthlyTripsAgg,
       monthlyExpenses: monthlyExpensesAgg,
       fuelConsumption,
       costlyVehicles,
       topDrivers,
-      vehicleROI
+      vehicleROI,
+      mostTravelledRoutes,
+      averageDistance,
+      averageDuration,
+      heatmapPoints
     });
 
   } catch (error) {

@@ -202,4 +202,21 @@ export const analyticsService = {
   },
 };
 
+// Maps Services
+export const mapsService = {
+  getDirections: async (origin, destination, alternatives = false) => {
+    const response = await api.get('/api/maps/directions', { params: { origin, destination, alternatives } });
+    return response.data;
+  },
+  geocode: async (address) => {
+    const response = await api.get('/api/maps/geocode', { params: { address } });
+    return response.data;
+  },
+  autocomplete: async (text) => {
+    const response = await api.get('/api/maps/autocomplete', { params: { text } });
+    return response.data;
+  }
+};
+
+
 export default api;

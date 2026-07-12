@@ -31,6 +31,7 @@ const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const fuelRoutes = require('./routes/fuelRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const mapRoutes = require('./routes/mapRoutes');
 
 // API Mount Points
 app.use('/api/auth', authRoutes);
@@ -41,6 +42,7 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/fuel', fuelRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/maps', mapRoutes);
 
 // Root Endpoint
 app.get('/', (req, res) => {
@@ -62,8 +64,14 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Import Simulation Service
+const { startSimulation } = require('./services/simulation.service');
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`TransitOps Backend Running on port: ${PORT}`);
   console.log(`API URL: http://localhost:${PORT}`);
+  
+  // Start simulation background task
+  startSimulation();
 });

@@ -21,6 +21,18 @@ const TripSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  sourceLocation: {
+    name: { type: String, default: '' },
+    address: { type: String, default: '' },
+    latitude: { type: Number, default: 0 },
+    longitude: { type: Number, default: 0 }
+  },
+  destinationLocation: {
+    name: { type: String, default: '' },
+    address: { type: String, default: '' },
+    latitude: { type: Number, default: 0 },
+    longitude: { type: Number, default: 0 }
+  },
   cargo_weight: {
     type: Number, // in kg
     required: true
@@ -28,6 +40,18 @@ const TripSchema = new mongoose.Schema({
   planned_distance: {
     type: Number, // in km
     required: true
+  },
+  plannedDistance: {
+    type: Number, // in km
+    default: 0
+  },
+  estimatedDuration: {
+    type: Number, // in seconds
+    default: 0
+  },
+  routePolyline: {
+    type: String,
+    default: ''
   },
   status: {
     type: String,

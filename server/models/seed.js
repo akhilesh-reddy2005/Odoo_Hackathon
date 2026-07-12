@@ -84,15 +84,39 @@ async function seedDatabase() {
 
     // 3. Seed Vehicles
     const vehicles = await Vehicle.insertMany([
-      { registration_number: 'TX-892-APP', name: 'Volvo VNL 860', model: 'Volvo 2022', type: 'Semi-Truck', capacity: 36000, current_odometer: 125430.2, acquisition_cost: 145000, purchase_date: new Date('2022-03-15'), status: 'Available' },
-      { registration_number: 'CA-401-TRK', name: 'Freightliner Cascadia', model: 'Freightliner 2021', type: 'Semi-Truck', capacity: 38000, current_odometer: 240150.5, acquisition_cost: 138000, purchase_date: new Date('2021-06-20'), status: 'On Trip' },
-      { registration_number: 'NY-772-VAN', name: 'Ford Transit 350 Cargo', model: 'Ford 2023', type: 'Delivery Van', capacity: 2000, current_odometer: 15420, acquisition_cost: 48000, purchase_date: new Date('2023-01-10'), status: 'Available' },
-      { registration_number: 'FL-109-BOX', name: 'Isuzu NPR-HD', model: 'Isuzu 2020', type: 'Box Truck', capacity: 6500, current_odometer: 89100.8, acquisition_cost: 72000, purchase_date: new Date('2020-11-05'), status: 'In Shop' },
-      { registration_number: 'WA-551-RET', name: 'Peterbilt 389', model: 'Peterbilt 2015', type: 'Semi-Truck', capacity: 35000, current_odometer: 850400, acquisition_cost: 160000, purchase_date: new Date('2015-04-18'), status: 'Retired' },
-      { registration_number: 'IL-884-APP', name: 'Kenworth T680', model: 'Kenworth 2023', type: 'Semi-Truck', capacity: 37000, current_odometer: 45200, acquisition_cost: 155000, purchase_date: new Date('2023-05-12'), status: 'Available' }
+      { 
+        registration_number: 'TX-892-APP', name: 'Volvo VNL 860', model: 'Volvo 2022', type: 'Semi-Truck', capacity: 36000, current_odometer: 125430.2, acquisition_cost: 145000, purchase_date: new Date('2022-03-15'), status: 'Available',
+        currentLocation: { latitude: 32.7767, longitude: -96.7970 }, // Dallas, TX
+        lastKnownLocation: { latitude: 32.7767, longitude: -96.7970 }
+      },
+      { 
+        registration_number: 'CA-401-TRK', name: 'Freightliner Cascadia', model: 'Freightliner 2021', type: 'Semi-Truck', capacity: 38000, current_odometer: 240150.5, acquisition_cost: 138000, purchase_date: new Date('2021-06-20'), status: 'On Trip',
+        currentLocation: { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles, CA
+        lastKnownLocation: { latitude: 34.0522, longitude: -118.2437 }
+      },
+      { 
+        registration_number: 'NY-772-VAN', name: 'Ford Transit 350 Cargo', model: 'Ford 2023', type: 'Delivery Van', capacity: 2000, current_odometer: 15420, acquisition_cost: 48000, purchase_date: new Date('2023-01-10'), status: 'Available',
+        currentLocation: { latitude: 47.6062, longitude: -122.3321 }, // Seattle, WA
+        lastKnownLocation: { latitude: 47.6062, longitude: -122.3321 }
+      },
+      { 
+        registration_number: 'FL-109-BOX', name: 'Isuzu NPR-HD', model: 'Isuzu 2020', type: 'Box Truck', capacity: 6500, current_odometer: 89100.8, acquisition_cost: 72000, purchase_date: new Date('2020-11-05'), status: 'In Shop',
+        currentLocation: { latitude: 25.7617, longitude: -80.1918 }, // Miami, FL
+        lastKnownLocation: { latitude: 25.7617, longitude: -80.1918 }
+      },
+      { 
+        registration_number: 'WA-551-RET', name: 'Peterbilt 389', model: 'Peterbilt 2015', type: 'Semi-Truck', capacity: 35000, current_odometer: 850400, acquisition_cost: 160000, purchase_date: new Date('2015-04-18'), status: 'Retired',
+        currentLocation: { latitude: 47.6101, longitude: -122.3421 }, // Seattle (retired)
+        lastKnownLocation: { latitude: 47.6101, longitude: -122.3421 }
+      },
+      { 
+        registration_number: 'IL-884-APP', name: 'Kenworth T680', model: 'Kenworth 2023', type: 'Semi-Truck', capacity: 37000, current_odometer: 45200, acquisition_cost: 155000, purchase_date: new Date('2023-05-12'), status: 'Available',
+        currentLocation: { latitude: 41.8781, longitude: -87.6298 }, // Chicago, IL
+        lastKnownLocation: { latitude: 41.8781, longitude: -87.6298 }
+      }
     ]);
     console.log('Vehicles seeded.');
-
+ 
     // 4. Seed Drivers
     const drivers = await Driver.insertMany([
       { name: 'John Doe', phone: '+1-555-0199', license_number: 'DL-TEX-8921A', license_category: 'CDL-A', license_expiry: new Date('2027-08-14'), safety_score: 96.5, status: 'Available', trip_count: 24, fuel_efficiency: 3.8 },
@@ -102,16 +126,16 @@ async function seedDatabase() {
       { name: 'Emily Davis', phone: '+1-555-0512', license_number: 'DL-WA-5503E', license_category: 'CDL-A', license_expiry: new Date('2029-01-15'), safety_score: 94.8, status: 'Available', trip_count: 8, fuel_efficiency: 3.9 }
     ]);
     console.log('Drivers seeded.');
-
+ 
     const vVolvo = vehicles.find(v => v.registration_number === 'TX-892-APP');
     const vCascadia = vehicles.find(v => v.registration_number === 'CA-401-TRK');
     const vTransit = vehicles.find(v => v.registration_number === 'NY-772-VAN');
     const vIsuzu = vehicles.find(v => v.registration_number === 'FL-109-BOX');
-
+ 
     const dJohn = drivers.find(d => d.name === 'John Doe');
     const dJane = drivers.find(d => d.name === 'Jane Smith');
     const dEmily = drivers.find(d => d.name === 'Emily Davis');
-
+ 
     // 5. Seed Trips
     const trips = await Trip.insertMany([
       {
@@ -119,8 +143,13 @@ async function seedDatabase() {
         driver: dJohn._id,
         source: 'Dallas, TX',
         destination: 'Houston, TX',
+        sourceLocation: { name: 'Dallas, TX', address: 'Dallas, TX, USA', latitude: 32.7767, longitude: -96.7970 },
+        destinationLocation: { name: 'Houston, TX', address: 'Houston, TX, USA', latitude: 29.7604, longitude: -95.3698 },
         cargo_weight: 18000,
         planned_distance: 390,
+        plannedDistance: 390,
+        estimatedDuration: 13500, // 3h 45m
+        routePolyline: '_abwEl~paU_i@xXogAf`@u_@h\\_`AdFsn@b[u}AhP_}Af`@',
         status: 'Completed',
         notes: 'Standard dry van shipment.',
         dispatched_at: new Date('2026-07-08T08:00:00Z'),
@@ -131,19 +160,29 @@ async function seedDatabase() {
         driver: dJane._id,
         source: 'Los Angeles, CA',
         destination: 'Phoenix, AZ',
+        sourceLocation: { name: 'Los Angeles, CA', address: 'Los Angeles, CA, USA', latitude: 34.0522, longitude: -118.2437 },
+        destinationLocation: { name: 'Phoenix, AZ', address: 'Phoenix, AZ, USA', latitude: 33.4484, longitude: -112.0740 },
         cargo_weight: 22000,
         planned_distance: 598,
+        plannedDistance: 598,
+        estimatedDuration: 21000, // 5h 50m
+        routePolyline: 'crznF~ebxU{~A~}A{~A~}A{~A~}A{~A~}A{~A~}A{~A~}A',
         status: 'Dispatched',
         notes: 'Refrigerated cargo, temp set to -18C.',
-        dispatched_at: new Date('2026-07-11T06:00:00Z')
+        dispatched_at: new Date() // Set to now to show active simulation
       },
       {
         vehicle: vTransit._id,
         driver: dEmily._id,
         source: 'Seattle, WA',
         destination: 'Portland, OR',
+        sourceLocation: { name: 'Seattle, WA', address: 'Seattle, WA, USA', latitude: 47.6062, longitude: -122.3321 },
+        destinationLocation: { name: 'Portland, OR', address: 'Portland, OR, USA', latitude: 45.5152, longitude: -122.6784 },
         cargo_weight: 1200,
         planned_distance: 280,
+        plannedDistance: 280,
+        estimatedDuration: 10000, // 2h 46m
+        routePolyline: 'iyp`H{~riVw`@e`A_i@g`A_i@g`A',
         status: 'Completed',
         notes: 'Last-mile electronic parts delivery.',
         dispatched_at: new Date('2026-07-10T09:00:00Z'),
@@ -154,8 +193,13 @@ async function seedDatabase() {
         driver: dJohn._id,
         source: 'Dallas, TX',
         destination: 'Austin, TX',
+        sourceLocation: { name: 'Dallas, TX', address: 'Dallas, TX, USA', latitude: 32.7767, longitude: -96.7970 },
+        destinationLocation: { name: 'Austin, TX', address: 'Austin, TX, USA', latitude: 30.2672, longitude: -97.7431 },
         cargo_weight: 15000,
         planned_distance: 310,
+        plannedDistance: 310,
+        estimatedDuration: 11000,
+        routePolyline: '_abwEl~paU{~A~}A{~A',
         status: 'Draft',
         notes: 'Pending final customer invoice confirmation.'
       }
