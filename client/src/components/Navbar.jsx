@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Bell, Search, Clock, ShieldAlert, CheckCircle, Info, AlertTriangle } from 'lucide-react';
+import { Bell, Search, Menu, Clock, ShieldAlert, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { analyticsService } from '../services/api';
+import ThemeToggle from './ThemeToggle';
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick = () => {} }) {
   const { user } = useAuth();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Notification states
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -79,60 +80,67 @@ export default function Navbar() {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'Danger':
-        return <ShieldAlert className="h-4 w-4 text-red-500" />;
+        return <ShieldAlert className="h-4 w-4 text-rose-500" />;
       case 'Warning':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+        return <AlertTriangle className="h-4 w-4 text-amber-500" />;
       case 'Success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-500" />;
       default:
         return <Info className="h-4 w-4 text-blue-500" />;
     }
   };
 
   return (
-    <header className="h-20 bg-darkbg-navbar/70 backdrop-blur-glass border-b border-white/5 fixed top-0 right-0 left-64 z-20 px-8 flex items-center justify-between">
-      {/* Title */}
-      <div>
-        <h2 className="text-xl font-bold font-sans tracking-wide text-white">{getPageTitle()}</h2>
-        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500 font-medium">
-          <span className="h-2 w-2 rounded-full bg-green-500 shadow-sm shadow-green-500 animate-pulse"></span>
-          <span>System Status: Operational</span>
+    <header className="h-16 bg-surface/90 backdrop-blur-sm border-b border-line fixed top-0 right-0 left-0 lg:left-64 z-30 px-4 sm:px-6 flex items-center justify-between">
+      {/* Left: Menu + Title */}
+      <div className="flex items-center gap-3 min-w-0">
+        <button onClick={onMenuClick} className="p-2 -ml-2 text-ink-secondary hover:text-ink-primary lg:hidden">
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-ink-primary tracking-tight truncate">{getPageTitle()}</h2>
+          <div className="hidden sm:flex items-center gap-1.5 mt-0.5 text-xs text-ink-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            <span>System Operational</span>
+          </div>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Live Clock */}
-        <div className="hidden xl:flex items-center gap-2 text-gray-400 bg-white/5 border border-white/5 rounded-xl px-4 py-2 text-xs font-semibold select-none">
-          <Clock className="h-4 w-4 text-brand-orange" />
+        <div className="hidden xl:flex items-center gap-2 text-ink-secondary bg-surface-sunken border border-line rounded-lg px-3 py-2 text-xs font-medium select-none">
+          <Clock className="h-3.5 w-3.5 text-ink-muted" />
           <span>
             {currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
-          <span className="text-white/20">|</span>
-          <span className="text-white tracking-widest">
+          <span className="text-line">|</span>
+          <span className="text-ink-primary font-mono tabular-nums">
             {currentTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
         </div>
 
         {/* Global Search Bar */}
-        <div className="relative w-64 hidden md:block">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+        <div className="relative w-56 hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
           <input
             type="text"
             placeholder="Search everywhere..."
-            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-orange/50 transition-all duration-200"
+            className="w-full bg-surface-sunken hover:bg-surface-hover border border-line rounded-lg pl-9 pr-4 py-2 text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all duration-150"
           />
         </div>
+
+        <ThemeToggle />
 
         {/* Notification Bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-150 relative active:scale-95"
+            className="p-2.5 bg-surface hover:bg-surface-hover border border-line rounded-lg text-ink-secondary hover:text-ink-primary transition-all duration-150 relative active:scale-95"
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 bg-brand-orange text-white text-[10px] font-extrabold flex items-center justify-center rounded-full animate-bounce border border-darkbg-base">
+              <span className="absolute -top-1 -right-1 h-4 w-4 bg-brand text-white text-[10px] font-semibold flex items-center justify-center rounded-full ring-2 ring-surface">
                 {unreadCount}
               </span>
             )}
@@ -140,42 +148,42 @@ export default function Navbar() {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 bg-darkbg-sidebar border border-white/15 shadow-2xl rounded-2xl overflow-hidden z-50">
-              <div className="p-4 border-b border-white/5 flex items-center justify-between">
-                <span className="text-xs font-bold text-white tracking-wider uppercase">Notifications Center</span>
+            <div className="absolute right-0 mt-2 w-80 bg-surface border border-line shadow-lg rounded-xl overflow-hidden z-50">
+              <div className="p-4 border-b border-line flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink-primary">Notifications</span>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-[10px] text-brand-orange hover:text-white font-bold uppercase transition-colors"
+                    className="text-xs text-brand hover:text-brand-hover font-medium transition-colors"
                   >
-                    Mark All Read
+                    Mark all read
                   </button>
                 )}
               </div>
 
-              <div className="max-h-64 overflow-y-auto divide-y divide-white/5">
+              <div className="max-h-64 overflow-y-auto divide-y divide-line-subtle">
                 {notifications.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-gray-500">
+                  <div className="p-6 text-center text-sm text-ink-muted">
                     No active notifications or alerts.
                   </div>
                 ) : (
                   notifications.map((n) => (
-                    <div 
-                      key={n.id} 
-                      className={`p-4 transition-colors hover:bg-white/5 flex items-start gap-3 ${!n.is_read ? 'bg-brand-orangeLight/5' : ''}`}
+                    <div
+                      key={n.id}
+                      className={`p-4 transition-colors hover:bg-surface-hover flex items-start gap-3 ${!n.is_read ? 'bg-brand-light/40' : ''}`}
                     >
                       <div className="mt-0.5">{getNotificationIcon(n.type)}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white truncate">{n.title}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{n.message}</p>
+                        <p className="text-sm font-medium text-ink-primary truncate">{n.title}</p>
+                        <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{n.message}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
-              <div className="p-3 bg-black/10 border-t border-white/5 text-center">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Logged as {user?.role}</span>
+              <div className="p-2.5 bg-surface-sunken border-t border-line text-center">
+                <span className="text-xs text-ink-muted font-medium">Logged in as {user?.role}</span>
               </div>
             </div>
           )}

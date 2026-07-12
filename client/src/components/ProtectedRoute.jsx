@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import Spinner from './Spinner';
 
 export default function ProtectedRoute({ children, requiredPermission }) {
   const { user, loading, hasPermission } = useAuth();
@@ -8,12 +9,9 @@ export default function ProtectedRoute({ children, requiredPermission }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-darkbg-base flex flex-col items-center justify-center">
-        <div className="relative w-16 h-16">
-          <div className="absolute top-0 left-0 w-full h-full border-4 border-brand-orange/20 rounded-full"></div>
-          <div className="absolute top-0 left-0 w-full h-full border-4 border-t-brand-orange rounded-full animate-spin"></div>
-        </div>
-        <p className="text-gray-400 mt-4 font-medium animate-pulse">Initializing transit operations session...</p>
+      <div className="min-h-screen bg-surface-page flex flex-col items-center justify-center">
+        <Spinner size="lg" />
+        <p className="text-ink-muted mt-4 text-sm font-medium">Loading your workspace...</p>
       </div>
     );
   }

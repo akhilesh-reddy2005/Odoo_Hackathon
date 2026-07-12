@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,29 +8,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        darkbg: {
-          base: '#080c14',       // Deep navy/charcoal base
-          sidebar: '#0e1420',    // Sidebar background
-          navbar: 'rgba(14, 20, 32, 0.7)', // Glass navbar
-          card: 'rgba(20, 28, 45, 0.45)',  // Semi-transparent cards
-          cardHover: 'rgba(28, 38, 60, 0.6)'
+        surface: {
+          page: 'rgb(var(--bg-page) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--bg-surface) / <alpha-value>)',
+          hover: 'rgb(var(--bg-surface-hover) / <alpha-value>)',
+          sunken: 'rgb(var(--bg-surface-sunken) / <alpha-value>)',
+        },
+        ink: {
+          primary: 'rgb(var(--text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--text-muted) / <alpha-value>)',
+        },
+        line: {
+          DEFAULT: 'rgb(var(--border-default) / <alpha-value>)',
+          subtle: 'rgb(var(--border-subtle) / <alpha-value>)',
         },
         brand: {
-          orange: '#f97316',     // Primary Orange accent
-          orangeDark: '#ea580c', // Dark orange hover
-          orangeLight: 'rgba(249, 115, 22, 0.15)', // Light glass highlights
-        }
+          DEFAULT: 'rgb(var(--brand) / <alpha-value>)',
+          hover: 'rgb(var(--brand-hover) / <alpha-value>)',
+          light: 'rgb(var(--brand-light) / <alpha-value>)',
+        },
       },
       fontFamily: {
-        sans: ['Inter', 'Outfit', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
       },
-      boxShadow: {
-        glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-        glassBorder: 'inset 0 1px 1px 0 rgba(255, 255, 255, 0.05)',
-      },
-      backdropBlur: {
-        glass: '12px',
-      }
     },
   },
   plugins: [],

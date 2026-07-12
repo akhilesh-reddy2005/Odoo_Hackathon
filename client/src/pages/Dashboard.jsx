@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { 
-  Truck, 
-  Users, 
-  Milestone, 
-  Wrench, 
-  Fuel, 
-  TrendingUp, 
-  AlertTriangle, 
-  PlusCircle, 
-  ClipboardList, 
-  ChevronRight, 
-  Info,
+import {
+  Truck,
+  Users,
+  Milestone,
+  Wrench,
+  Fuel,
+  TrendingUp,
+  AlertTriangle,
+  PlusCircle,
+  ClipboardList,
+  ChevronRight,
   Calendar,
   Layers,
   Compass
@@ -23,23 +22,20 @@ import LeafletMap from '../components/LeafletMap';
 import { analyticsService, tripService, fuelService, maintenanceService, vehicleService, driverService } from '../services/api';
 import { CardSkeleton, TableSkeleton } from '../components/Skeleton';
 import Modal from '../components/Modal';
-
-
+import Badge from '../components/Badge';
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE } from '../constants/theme';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  
 
-  
-  const [activeVehicleMarker, setActiveVehicleMarker] = useState(null);
-  
+  const [vehicles, setVehicles] = useState([]);
+
   // Modals state
   const [fuelOpen, setFuelOpen] = useState(false);
   const [maintOpen, setMaintOpen] = useState(false);
-  const [vehicles, setVehicles] = useState([]);
-  
+
   // Form fields states
   const [fuelData, setFuelData] = useState({ vehicle_id: '', date: new Date().toISOString().split('T')[0], fuel_quantity: '', fuel_cost: '', odometer: '' });
   const [maintData, setMaintData] = useState({ vehicle_id: '', issue: '', description: '', priority: 'Medium', estimated_cost: '' });
@@ -49,7 +45,7 @@ export default function Dashboard() {
     try {
       const data = await analyticsService.getDashboard();
       setStats(data);
-      
+
       // Load vehicles list for dropdowns
       const fleet = await vehicleService.getAll({ limit: 100 });
       setVehicles(fleet.vehicles || []);
@@ -108,7 +104,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
@@ -121,8 +117,8 @@ export default function Dashboard() {
 
   const { kpis, recentTrips, maintenanceAlerts, licenseAlerts, vehicleStatusChart } = stats;
 
-  // Custom colors for Pie chart
-  const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ef4444']; // Available (Green), On Trip (Orange), In Shop (Blue), Retired (Red)
+  // Pie chart colors — success/info/warning/danger semantic mapping
+  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#F43F5E']; // Available, On Trip, In Shop, Retired
   const chartData = vehicleStatusChart?.length > 0 ? vehicleStatusChart : [
     { name: 'Available', value: kpis.availableVehicles },
     { name: 'On Trip', value: kpis.activeVehicles },
@@ -131,107 +127,107 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Overview stats Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Active Vehicles Card */}
-        <div className="glass-card glass-card-hover p-6 flex items-center justify-between border-l-4 border-l-brand-orange animate-in fade-in slide-in-from-bottom-3 duration-300">
+        <div className="card p-5 flex items-center justify-between border-l-2 border-l-brand">
           <div>
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest block">Active Operations</span>
-            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">{kpis.activeTrips} / {kpis.activeVehicles}</span>
-            <p className="text-[10px] text-gray-500 font-semibold uppercase mt-2">dispatched trips & trucks</p>
+            <span className="text-xs font-medium text-ink-muted uppercase tracking-wide block">Active Operations</span>
+            <span className="text-2xl font-bold text-ink-primary mt-2 block">{kpis.activeTrips} / {kpis.activeVehicles}</span>
+            <p className="text-xs text-ink-muted mt-2">dispatched trips &amp; trucks</p>
           </div>
-          <div className="bg-brand-orange/10 p-3.5 rounded-xl border border-brand-orange/20">
-            <Truck className="h-6 w-6 text-brand-orange" />
+          <div className="bg-brand/10 p-3 rounded-lg">
+            <Truck className="h-5 w-5 text-brand" />
           </div>
         </div>
 
-        {/* Drivers On Duty Card */}
-        <div className="glass-card glass-card-hover p-6 flex items-center justify-between border-l-4 border-l-green-500 animate-in fade-in slide-in-from-bottom-3 duration-400">
+        {/* Available Fleet Card */}
+        <div className="card p-5 flex items-center justify-between border-l-2 border-l-emerald-500">
           <div>
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest block">Available Fleet</span>
-            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">{kpis.availableVehicles}</span>
-            <p className="text-[10px] text-green-500 font-semibold uppercase mt-2">ready to dispatch</p>
+            <span className="text-xs font-medium text-ink-muted uppercase tracking-wide block">Available Fleet</span>
+            <span className="text-2xl font-bold text-ink-primary mt-2 block">{kpis.availableVehicles}</span>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2">ready to dispatch</p>
           </div>
-          <div className="bg-green-500/10 p-3.5 rounded-xl border border-green-500/20">
-            <Users className="h-6 w-6 text-green-500" />
+          <div className="bg-emerald-500/10 p-3 rounded-lg">
+            <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
         </div>
 
         {/* Fleet Utilization Card */}
-        <div className="glass-card glass-card-hover p-6 flex items-center justify-between border-l-4 border-l-blue-500 animate-in fade-in slide-in-from-bottom-3 duration-500">
+        <div className="card p-5 flex items-center justify-between border-l-2 border-l-blue-500">
           <div>
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest block">Utilization Rate</span>
-            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">{kpis.fleetUtilization}%</span>
-            <div className="w-24 bg-white/5 rounded-full h-1.5 mt-2.5 overflow-hidden">
+            <span className="text-xs font-medium text-ink-muted uppercase tracking-wide block">Utilization Rate</span>
+            <span className="text-2xl font-bold text-ink-primary mt-2 block">{kpis.fleetUtilization}%</span>
+            <div className="w-24 bg-surface-hover rounded-full h-1.5 mt-2.5 overflow-hidden">
               <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${kpis.fleetUtilization}%` }}></div>
             </div>
           </div>
-          <div className="bg-blue-500/10 p-3.5 rounded-xl border border-blue-500/20">
-            <TrendingUp className="h-6 w-6 text-blue-500" />
+          <div className="bg-blue-500/10 p-3 rounded-lg">
+            <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
         </div>
 
         {/* Financial Flow Card */}
-        <div className="glass-card glass-card-hover p-6 flex items-center justify-between border-l-4 border-l-amber-500 animate-in fade-in slide-in-from-bottom-3 duration-600">
+        <div className="card p-5 flex items-center justify-between border-l-2 border-l-amber-500">
           <div>
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest block">Today's Costs</span>
-            <span className="text-3xl font-extrabold text-white mt-2 block font-sans">₹{(kpis.todayExpenses + kpis.todayFuelCost).toFixed(2)}</span>
-            <p className="text-[10px] text-gray-500 font-semibold uppercase mt-2">
-              Fuel: ₹{kpis.todayFuelCost.toFixed(2)} | Exp: ₹{kpis.todayExpenses.toFixed(2)}
+            <span className="text-xs font-medium text-ink-muted uppercase tracking-wide block">Today's Costs</span>
+            <span className="text-2xl font-bold text-ink-primary mt-2 block">₹{(kpis.todayExpenses + kpis.todayFuelCost).toFixed(2)}</span>
+            <p className="text-xs text-ink-muted mt-2">
+              Fuel: ₹{kpis.todayFuelCost.toFixed(2)} · Exp: ₹{kpis.todayExpenses.toFixed(2)}
             </p>
           </div>
-          <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20">
-            <Fuel className="h-6 w-6 text-amber-500" />
+          <div className="bg-amber-500/10 p-3 rounded-lg">
+            <Fuel className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           </div>
         </div>
       </section>
 
       {/* Quick Action Drawer Section */}
-      <section className="glass-card p-6 border border-white/5">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Operations Control Deck</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button onClick={() => navigate('/fleet')} className="btn-secondary h-14 flex items-center justify-center gap-3 bg-white/5 border border-white/5 hover:border-brand-orange/30 group">
-            <PlusCircle className="h-4 w-4 text-brand-orange transition-transform duration-200 group-hover:scale-110" />
-            <span className="font-semibold text-xs">Register Vehicle</span>
+      <section className="card p-6">
+        <h3 className="text-sm font-semibold text-ink-primary mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button onClick={() => navigate('/fleet')} className="btn-secondary h-12">
+            <PlusCircle className="h-4 w-4 text-brand" />
+            <span className="text-xs font-medium">Register Vehicle</span>
           </button>
-          
-          <button onClick={() => navigate('/trips')} className="btn-secondary h-14 flex items-center justify-center gap-3 bg-white/5 border border-white/5 hover:border-brand-orange/30 group">
-            <Milestone className="h-4 w-4 text-brand-orange transition-transform duration-200 group-hover:scale-110" />
-            <span className="font-semibold text-xs">Dispatch Trip</span>
+
+          <button onClick={() => navigate('/trips')} className="btn-secondary h-12">
+            <Milestone className="h-4 w-4 text-brand" />
+            <span className="text-xs font-medium">Dispatch Trip</span>
           </button>
-          
-          <button onClick={() => setFuelOpen(true)} className="btn-secondary h-14 flex items-center justify-center gap-3 bg-white/5 border border-white/5 hover:border-brand-orange/30 group">
-            <Fuel className="h-4 w-4 text-brand-orange transition-transform duration-200 group-hover:scale-110" />
-            <span className="font-semibold text-xs">Log Fuel Cost</span>
+
+          <button onClick={() => setFuelOpen(true)} className="btn-secondary h-12">
+            <Fuel className="h-4 w-4 text-brand" />
+            <span className="text-xs font-medium">Log Fuel Cost</span>
           </button>
-          
-          <button onClick={() => setMaintOpen(true)} className="btn-secondary h-14 flex items-center justify-center gap-3 bg-white/5 border border-white/5 hover:border-brand-orange/30 group">
-            <Wrench className="h-4 w-4 text-brand-orange transition-transform duration-200 group-hover:scale-110" />
-            <span className="font-semibold text-xs">Raise Maintenance</span>
+
+          <button onClick={() => setMaintOpen(true)} className="btn-secondary h-12">
+            <Wrench className="h-4 w-4 text-brand" />
+            <span className="text-xs font-medium">Raise Maintenance</span>
           </button>
         </div>
       </section>
 
       {/* Interactive Fleet Map Section */}
-      <section className="glass-card p-6 border border-white/5 space-y-4 animate-in fade-in duration-300">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/5 pb-4">
+      <section className="card p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-line pb-4">
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Compass className="h-4.5 w-4.5 text-brand-orange animate-pulse" />
+            <h3 className="text-sm font-semibold text-ink-primary flex items-center gap-2">
+              <Compass className="h-4 w-4 text-ink-muted" />
               Real-time Fleet Operations Map
             </h3>
-            <p className="text-[10px] text-gray-500 font-semibold uppercase mt-0.5">Live vehicle tracking and dispatch diagnostics</p>
+            <p className="text-xs text-ink-muted mt-0.5">Live vehicle tracking and dispatch diagnostics</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-[9px] font-bold text-gray-400">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] border border-white/10"></span> Available</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white/10"></span> On Trip</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#f97316] border border-white/10"></span> Maintenance</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af] border border-white/10"></span> Retired</span>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-ink-muted">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Available</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"></span> On Trip</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Maintenance</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"></span> Retired</span>
           </div>
         </div>
 
-        <div className="h-[380px] rounded-xl overflow-hidden border border-white/10 relative">
+        <div className="h-[380px] rounded-lg overflow-hidden border border-line relative">
           <LeafletMap
             center={{ lat: 39.8283, lng: -98.5795 }}
             zoom={4}
@@ -239,10 +235,10 @@ export default function Dashboard() {
             markers={vehicles
               .filter(v => v.currentLocation && v.currentLocation.latitude !== 0)
               .map(vehicle => {
-                let color = '#9ca3af';
-                if (vehicle.status === 'Available') color = '#22c55e';
-                else if (vehicle.status === 'On Trip') color = '#3b82f6';
-                else if (vehicle.status === 'In Shop') color = '#f97316';
+                let color = '#94A3B8';
+                if (vehicle.status === 'Available') color = '#10B981';
+                else if (vehicle.status === 'On Trip') color = '#3B82F6';
+                else if (vehicle.status === 'In Shop') color = '#F59E0B';
                 return {
                   lat: vehicle.currentLocation.latitude,
                   lng: vehicle.currentLocation.longitude,
@@ -257,18 +253,18 @@ export default function Dashboard() {
       </section>
 
       {/* Middle section: Chart and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Recent Trips List (2/3 width) */}
-        <section className="lg:col-span-2 glass-card border border-white/5 overflow-hidden flex flex-col justify-between">
+        <section className="lg:col-span-2 card overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-brand-orange" />
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-ink-primary flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-ink-muted" />
                 Recent Dispatched Trips
               </h3>
-              <button 
-                onClick={() => navigate('/trips')} 
-                className="text-xs text-brand-orange hover:text-white font-semibold transition-colors flex items-center gap-0.5"
+              <button
+                onClick={() => navigate('/trips')}
+                className="text-xs text-brand hover:text-brand-hover font-medium transition-colors flex items-center gap-0.5"
               >
                 View Registry
                 <ChevronRight className="h-3 w-3" />
@@ -278,47 +274,36 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-white/[0.02]">
-                    <th className="table-header text-[10px]">Route</th>
-                    <th className="table-header text-[10px]">Vehicle</th>
-                    <th className="table-header text-[10px]">Driver</th>
-                    <th className="table-header text-[10px]">Weight</th>
-                    <th className="table-header text-[10px] text-center">Status</th>
+                  <tr>
+                    <th className="table-header">Route</th>
+                    <th className="table-header">Vehicle</th>
+                    <th className="table-header">Driver</th>
+                    <th className="table-header text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody>
                   {recentTrips.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-xs text-gray-500">
+                      <td colSpan="4" className="px-6 py-12 text-center text-sm text-ink-muted">
                         No recent operations logs.
                       </td>
                     </tr>
                   ) : (
                     recentTrips.map((trip) => (
-                      <tr key={trip.id} className="hover:bg-white/5 transition-all">
-                        <td className="table-cell py-3.5">
-                          <p className="font-semibold text-white text-xs">{trip.source} → {trip.destination}</p>
-                          <p className="text-[10px] text-gray-500 font-medium mt-0.5">{trip.planned_distance} km</p>
+                      <tr key={trip.id} className="hover:bg-surface-hover transition-colors">
+                        <td className="table-cell">
+                          <p className="font-medium text-ink-primary text-sm">{trip.source} → {trip.destination}</p>
+                          <p className="text-xs text-ink-muted mt-0.5">{trip.planned_distance} km</p>
                         </td>
-                        <td className="table-cell py-3.5 text-xs">
-                          <p className="text-white font-medium">{trip.vehicle_name}</p>
-                          <p className="text-[10px] text-gray-500 font-mono">{trip.registration_number}</p>
+                        <td className="table-cell">
+                          <p className="text-ink-primary font-medium">{trip.vehicle_name}</p>
+                          <p className="text-xs text-ink-muted font-mono">{trip.registration_number}</p>
                         </td>
-                        <td className="table-cell py-3.5 text-xs font-medium text-gray-300">
+                        <td className="table-cell font-medium">
                           {trip.driver_name}
                         </td>
-                        <td className="table-cell py-3.5 text-xs text-gray-400 font-mono">
-                          {trip.cargo_weight} kg
-                        </td>
-                        <td className="table-cell py-3.5 text-center">
-                          <span className={`status-badge text-[9px] ${
-                            trip.status === 'Completed' ? 'bg-green-500/15 text-green-400 border border-green-500/25' :
-                            trip.status === 'Dispatched' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/25' :
-                            trip.status === 'Cancelled' ? 'bg-red-500/15 text-red-400 border border-red-500/25' :
-                            'bg-slate-500/15 text-slate-400 border border-slate-500/25'
-                          }`}>
-                            {trip.status}
-                          </span>
+                        <td className="table-cell text-center">
+                          <Badge status={trip.status} />
                         </td>
                       </tr>
                     ))
@@ -330,10 +315,10 @@ export default function Dashboard() {
         </section>
 
         {/* Fleet Distribution Chart (1/3 width) */}
-        <section className="glass-card border border-white/5 p-6 flex flex-col justify-between h-full">
-          <div className="border-b border-white/5 pb-4 mb-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Layers className="h-4 w-4 text-brand-orange" />
+        <section className="card p-6 flex flex-col justify-between h-full">
+          <div className="border-b border-line pb-4 mb-4">
+            <h3 className="text-sm font-semibold text-ink-primary flex items-center gap-2">
+              <Layers className="h-4 w-4 text-ink-muted" />
               Fleet Status Share
             </h3>
           </div>
@@ -347,23 +332,20 @@ export default function Dashboard() {
                   cy="50%"
                   innerRadius={60}
                   outerRadius={80}
-                  paddingAngle={5}
+                  paddingAngle={4}
                   dataKey="value"
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0e1420', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Legend 
-                  layout="horizontal" 
-                  align="center" 
-                  verticalAlign="bottom" 
+                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} />
+                <Legend
+                  layout="horizontal"
+                  align="center"
+                  verticalAlign="bottom"
                   iconSize={8}
-                  formatter={(value) => <span className="text-[10px] text-gray-400 font-semibold font-sans">{value}</span>}
+                  formatter={(value) => <span className="text-xs text-ink-muted font-medium">{value}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -372,30 +354,26 @@ export default function Dashboard() {
       </div>
 
       {/* Warnings & Alerts Deck */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Maintenance Alerts */}
-        <section className="glass-card p-6 border border-white/5">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-4 mb-4 flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-brand-orange" />
-            Active Repairs & Shop Tickets
+        <section className="card p-6">
+          <h3 className="text-sm font-semibold text-ink-primary border-b border-line pb-4 mb-4 flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-ink-muted" />
+            Active Repairs &amp; Shop Tickets
           </h3>
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {maintenanceAlerts.length === 0 ? (
-              <p className="text-xs text-gray-500 py-4 text-center">No active vehicles undergoing repairs.</p>
+              <p className="text-sm text-ink-muted py-4 text-center">No active vehicles undergoing repairs.</p>
             ) : (
               maintenanceAlerts.map((log) => (
-                <div key={log.id} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all flex justify-between items-center gap-4">
+                <div key={log.id} className="p-3 bg-surface-sunken rounded-lg border border-line flex justify-between items-center gap-4">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">{log.issue} ({log.vehicle_name})</p>
-                    <p className="text-[10px] text-gray-500 truncate mt-1">Est: ₹{log.estimated_cost} | {log.description}</p>
+                    <p className="text-sm font-medium text-ink-primary truncate">{log.issue} ({log.vehicle_name})</p>
+                    <p className="text-xs text-ink-muted truncate mt-1">Est: ₹{log.estimated_cost} · {log.description}</p>
                   </div>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
-                    log.priority === 'Critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                    log.priority === 'High' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                  }`}>
+                  <Badge tone={log.priority === 'Critical' ? 'danger' : log.priority === 'High' ? 'warning' : 'info'}>
                     {log.priority}
-                  </span>
+                  </Badge>
                 </div>
               ))
             )}
@@ -403,28 +381,28 @@ export default function Dashboard() {
         </section>
 
         {/* License Expiry Alerts */}
-        <section className="glass-card p-6 border border-white/5">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-4 mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-brand-orange" />
+        <section className="card p-6">
+          <h3 className="text-sm font-semibold text-ink-primary border-b border-line pb-4 mb-4 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-ink-muted" />
             License Expiry Compliance Check
           </h3>
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {licenseAlerts.length === 0 ? (
-              <p className="text-xs text-gray-500 py-4 text-center">All driver credentials compliant.</p>
+              <p className="text-sm text-ink-muted py-4 text-center">All driver credentials compliant.</p>
             ) : (
               licenseAlerts.map((driver) => {
                 const expired = new Date(driver.license_expiry) <= new Date();
                 return (
-                  <div key={driver.id} className="p-3 bg-white/5 rounded-xl border border-white/5 flex justify-between items-center gap-4">
+                  <div key={driver.id} className="p-3 bg-surface-sunken rounded-lg border border-line flex justify-between items-center gap-4">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">{driver.name}</p>
-                      <p className="text-[10px] text-gray-500 mt-1">License: {driver.license_number}</p>
+                      <p className="text-sm font-medium text-ink-primary truncate">{driver.name}</p>
+                      <p className="text-xs text-ink-muted mt-1">License: {driver.license_number}</p>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-[10px] font-bold ${expired ? 'text-red-500 animate-pulse' : 'text-yellow-500'}`}>
+                    <div className="text-right shrink-0">
+                      <p className={`text-xs font-semibold ${expired ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
                         {expired ? 'EXPIRED' : 'EXPIRING SOON'}
                       </p>
-                      <p className="text-[9px] text-gray-500 font-mono mt-0.5">{driver.license_expiry}</p>
+                      <p className="text-xs text-ink-muted font-mono mt-0.5">{driver.license_expiry}</p>
                     </div>
                   </div>
                 );
@@ -438,16 +416,16 @@ export default function Dashboard() {
       <Modal isOpen={fuelOpen} onClose={() => setFuelOpen(false)} title="Log Fuel Expense">
         <form onSubmit={handleFuelSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Vehicle</label>
             <select
-              className="glass-input cursor-pointer"
+              className="input cursor-pointer"
               value={fuelData.vehicle_id}
               onChange={(e) => setFuelData({ ...fuelData, vehicle_id: e.target.value })}
               required
             >
-              <option value="" className="bg-darkbg-sidebar">Select vehicle...</option>
+              <option value="">Select vehicle...</option>
               {vehicles.map(v => (
-                <option key={v.id} value={v.id} className="bg-darkbg-sidebar">
+                <option key={v.id} value={v.id}>
                   {v.name} ({v.registration_number})
                 </option>
               ))}
@@ -456,24 +434,24 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Quantity (Liters)</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Quantity (Liters)</label>
               <input
                 type="number"
                 step="0.01"
                 placeholder="e.g. 150"
-                className="glass-input"
+                className="input"
                 value={fuelData.fuel_quantity}
                 onChange={(e) => setFuelData({ ...fuelData, fuel_quantity: e.target.value })}
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Cost (Total USD)</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Cost (Total ₹)</label>
               <input
                 type="number"
                 step="0.01"
                 placeholder="e.g. 600"
-                className="glass-input"
+                className="input"
                 value={fuelData.fuel_cost}
                 onChange={(e) => setFuelData({ ...fuelData, fuel_cost: e.target.value })}
                 required
@@ -483,22 +461,22 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Odometer Reading (KM)</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Odometer Reading (KM)</label>
               <input
                 type="number"
                 step="0.01"
                 placeholder="e.g. 24500"
-                className="glass-input"
+                className="input"
                 value={fuelData.odometer}
                 onChange={(e) => setFuelData({ ...fuelData, odometer: e.target.value })}
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Log Date</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Log Date</label>
               <input
                 type="date"
-                className="glass-input"
+                className="input"
                 value={fuelData.date}
                 onChange={(e) => setFuelData({ ...fuelData, date: e.target.value })}
                 required
@@ -506,7 +484,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={() => setFuelOpen(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Register Purchase</button>
           </div>
@@ -518,43 +496,43 @@ export default function Dashboard() {
         <form onSubmit={handleMaintSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Vehicle</label>
               <select
-                className="glass-input cursor-pointer"
+                className="input cursor-pointer"
                 value={maintData.vehicle_id}
                 onChange={(e) => setMaintData({ ...maintData, vehicle_id: e.target.value })}
                 required
               >
-                <option value="" className="bg-darkbg-sidebar">Select vehicle...</option>
+                <option value="">Select vehicle...</option>
                 {vehicles.map(v => (
-                  <option key={v.id} value={v.id} className="bg-darkbg-sidebar">
+                  <option key={v.id} value={v.id}>
                     {v.name} ({v.registration_number})
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Priority Level</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Priority Level</label>
               <select
-                className="glass-input cursor-pointer"
+                className="input cursor-pointer"
                 value={maintData.priority}
                 onChange={(e) => setMaintData({ ...maintData, priority: e.target.value })}
                 required
               >
-                <option value="Low" className="bg-darkbg-sidebar">Low Priority</option>
-                <option value="Medium" className="bg-darkbg-sidebar">Medium Priority</option>
-                <option value="High" className="bg-darkbg-sidebar">High Priority</option>
-                <option value="Critical" className="bg-darkbg-sidebar">Critical (Grounded)</option>
+                <option value="Low">Low Priority</option>
+                <option value="Medium">Medium Priority</option>
+                <option value="High">High Priority</option>
+                <option value="Critical">Critical (Grounded)</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Reported Issue</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Reported Issue</label>
             <input
               type="text"
               placeholder="Brief summary of failure (e.g. Brake pad wear)..."
-              className="glass-input"
+              className="input"
               value={maintData.issue}
               onChange={(e) => setMaintData({ ...maintData, issue: e.target.value })}
               required
@@ -562,12 +540,12 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Estimated Cost ($ USD)</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Estimated Cost (₹)</label>
             <input
               type="number"
               step="0.01"
               placeholder="Estimated repair costs..."
-              className="glass-input"
+              className="input"
               value={maintData.estimated_cost}
               onChange={(e) => setMaintData({ ...maintData, estimated_cost: e.target.value })}
               required
@@ -575,17 +553,17 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Issue Description</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Issue Description</label>
             <textarea
               rows="3"
               placeholder="Describe full mechanical diagnostics or troubleshooting notes..."
-              className="glass-input resize-none"
+              className="input resize-none"
               value={maintData.description}
               onChange={(e) => setMaintData({ ...maintData, description: e.target.value })}
             ></textarea>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={() => setMaintOpen(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Register Issue</button>
           </div>

@@ -14,6 +14,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Circle, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTheme } from '../hooks/useTheme';
 
 // ─── Fix Leaflet default broken icon path (common with bundlers) ─────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -24,13 +25,13 @@ L.Icon.Default.mergeOptions({
 });
 
 // Create colored circle markers as DivIcons
-function createColoredIcon(color = '#f97316', size = 14) {
+function createColoredIcon(color = '#4F46E5', size = 14, ringColor = 'rgba(255,255,255,0.9)') {
   return L.divIcon({
     className: '',
     html: `<div style="
       width:${size}px;height:${size}px;
       background:${color};
-      border:2px solid rgba(255,255,255,0.8);
+      border:2px solid ${ringColor};
       border-radius:50%;
       box-shadow:0 0 6px ${color}80;
     "></div>`,
@@ -39,16 +40,16 @@ function createColoredIcon(color = '#f97316', size = 14) {
   });
 }
 
-function createLabelIcon(label = 'A', color = '#f97316') {
+function createLabelIcon(label = 'A', color = '#4F46E5', ringColor = 'rgba(255,255,255,0.9)') {
   return L.divIcon({
     className: '',
     html: `<div style="
       background:${color};color:white;
-      font-weight:800;font-size:11px;font-family:Inter,sans-serif;
+      font-weight:700;font-size:11px;font-family:Inter,sans-serif;
       width:24px;height:24px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      border:2px solid rgba(255,255,255,0.85);
-      box-shadow:0 2px 8px rgba(0,0,0,0.5);
+      border:2px solid ${ringColor};
+      box-shadow:0 2px 8px rgba(15,23,42,0.25);
     ">${label}</div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12]
@@ -86,6 +87,10 @@ export default function LeafletMap({
   autoBounds = false,
   onMarkerClick
 }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const ringColor = isDark ? 'rgba(20,22,28,0.9)' : 'rgba(255,255,255,0.9)';
+
   return (
     <MapContainer
       center={[center.lat, center.lng]}
@@ -94,9 +99,9 @@ export default function LeafletMap({
       zoomControl
       attributionControl={false}
     >
-      {/* CartoDB Dark Matter — free, no API key required */}
+      {/* CartoDB Positron / Dark Matter — free, no API key required */}
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        url={`https://{s}.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
       />
 
@@ -108,7 +113,7 @@ export default function LeafletMap({
         <Marker
           key={i}
           position={[m.lat, m.lng]}
-          icon={m.label ? createLabelIcon(m.label, m.color || '#f97316') : createColoredIcon(m.color || '#f97316', m.size || 14)}
+          icon={m.label ? createLabelIcon(m.label, m.color || '#4F46E5', ringColor) : createColoredIcon(m.color || '#4F46E5', m.size || 14, ringColor)}
           eventHandlers={onMarkerClick ? { click: () => onMarkerClick(m) } : {}}
         >
           {m.title && <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>{m.title}</Tooltip>}
@@ -120,7 +125,7 @@ export default function LeafletMap({
         <Polyline
           key={i}
           positions={pl.points.map(p => [p.lat, p.lng])}
-          color={pl.color || '#f97316'}
+          color={pl.color || '#4F46E5'}
           weight={pl.weight || 4}
           opacity={pl.opacity ?? 0.85}
           dashArray={pl.dashed ? '8 6' : undefined}
@@ -134,8 +139,8 @@ export default function LeafletMap({
           center={[c.lat, c.lng]}
           radius={c.radius || 22000}
           pathOptions={{
-            color: c.color || '#f97316',
-            fillColor: c.color || '#f97316',
+            color: c.color || '#4F46E5',
+            fillColor: c.color || '#4F46E5',
             fillOpacity: c.fillOpacity ?? 0.18,
             weight: 0
           }}

@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
-import { 
-  Search, 
-  Wrench, 
-  Plus, 
-  Trash2, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Play, 
-  XCircle, 
-  ExternalLink,
+import {
+  Wrench,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Play,
+  XCircle,
   Tag,
   IndianRupee
 } from 'lucide-react';
@@ -19,6 +16,9 @@ import { maintenanceService, vehicleService } from '../services/api';
 import { TableSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
+import Badge from '../components/Badge';
 
 export default function Maintenance() {
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function Maintenance() {
   // Modals state
   const [createOpen, setCreateOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
-  
+
   // Completing tickets parameters
   const [completingTicket, setCompletingTicket] = useState(null);
   const [actualCost, setActualCost] = useState('');
@@ -107,9 +107,9 @@ export default function Maintenance() {
       return;
     }
     try {
-      await maintenanceService.update(completingTicket.id || completingTicket._id, { 
-        status: 'Completed', 
-        actual_cost: parseFloat(actualCost) 
+      await maintenanceService.update(completingTicket.id || completingTicket._id, {
+        status: 'Completed',
+        actual_cost: parseFloat(actualCost)
       });
       toast.success('Repairs completed. Vehicle status restored. Expense logged.');
       setCompleteOpen(false);
@@ -143,51 +143,51 @@ export default function Maintenance() {
     }
   };
 
+  const priorityTone = (p) => (
+    p === 'Critical' ? 'danger' : p === 'High' ? 'warning' : p === 'Medium' ? 'info' : 'neutral'
+  );
+
   return (
     <div className="space-y-6">
       {/* Search and control filter deck */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white/5 border border-white/5 rounded-2xl p-6">
-        <div className="flex flex-wrap gap-4 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center card p-5">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
           {/* Search bar */}
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search issue or vehicle..."
-              className="glass-input pl-10 w-full"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search issue or vehicle..."
+            className="w-full md:w-64"
+          />
 
           {/* Status filter */}
           <select
-            className="glass-input cursor-pointer w-full sm:w-auto text-xs"
+            className="input cursor-pointer w-full sm:w-auto"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="All" className="bg-darkbg-sidebar">All Statuses</option>
-            <option value="Pending" className="bg-darkbg-sidebar">Pending Requests</option>
-            <option value="In Progress" className="bg-darkbg-sidebar">Undergoing Repairs</option>
-            <option value="Completed" className="bg-darkbg-sidebar">Completed Tickets</option>
-            <option value="Cancelled" className="bg-darkbg-sidebar">Cancelled</option>
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending Requests</option>
+            <option value="In Progress">Undergoing Repairs</option>
+            <option value="Completed">Completed Tickets</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
 
           {/* Priority filter */}
           <select
-            className="glass-input cursor-pointer w-full sm:w-auto text-xs"
+            className="input cursor-pointer w-full sm:w-auto"
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
           >
-            <option value="All" className="bg-darkbg-sidebar">All Priorities</option>
-            <option value="Low" className="bg-darkbg-sidebar">Low</option>
-            <option value="Medium" className="bg-darkbg-sidebar">Medium</option>
-            <option value="High" className="bg-darkbg-sidebar">High</option>
-            <option value="Critical" className="bg-darkbg-sidebar">Critical</option>
+            <option value="All">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
           </select>
         </div>
 
-        <button onClick={() => setCreateOpen(true)} className="btn-primary h-11 px-4 w-full md:w-auto">
+        <button onClick={() => setCreateOpen(true)} className="btn-primary h-10 px-4 w-full md:w-auto">
           <Plus className="h-4 w-4" />
           Log Maintenance
         </button>
@@ -199,59 +199,46 @@ export default function Maintenance() {
       ) : logs.length === 0 ? (
         <EmptyState title="No maintenance tickets match selection" icon={Wrench} />
       ) : (
-        <div className="glass-card border border-white/5 overflow-hidden">
+        <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-white/[0.02]">
-                  <th className="table-header text-[10px]">Vehicle Target</th>
-                  <th className="table-header text-[10px]">Reported Defect</th>
-                  <th className="table-header text-[10px]">Costs Ledger</th>
-                  <th className="table-header text-[10px] text-center">Priority</th>
-                  <th className="table-header text-[10px] text-center">Status</th>
-                  <th className="table-header text-[10px] text-right">Workshop Actions</th>
+                <tr>
+                  <th className="table-header">Vehicle Target</th>
+                  <th className="table-header">Reported Defect</th>
+                  <th className="table-header">Costs Ledger</th>
+                  <th className="table-header text-center">Priority</th>
+                  <th className="table-header text-center">Status</th>
+                  <th className="table-header text-right">Workshop Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody>
                 {logs.map((log) => (
-                  <tr key={log.id || log._id} className="hover:bg-white/5 transition-all group">
+                  <tr key={log.id || log._id} className="hover:bg-surface-hover transition-colors group">
                     <td className="table-cell">
-                      <p className="font-semibold text-white text-xs">{log.vehicle_name}</p>
-                      <p className="text-[10px] text-gray-500 font-mono mt-0.5">{log.vehicle_reg}</p>
+                      <p className="font-semibold text-ink-primary text-sm">{log.vehicle_name}</p>
+                      <p className="text-xs text-ink-muted font-mono mt-0.5">{log.vehicle_reg}</p>
                     </td>
                     <td className="table-cell">
-                      <p className="font-semibold text-white text-xs flex items-center gap-1">
-                        <Tag className="h-3 w-3 text-brand-orange" />
+                      <p className="font-semibold text-ink-primary text-sm flex items-center gap-1">
+                        <Tag className="h-3 w-3 text-brand" />
                         {log.issue}
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-1 max-w-xs truncate leading-relaxed">
+                      <p className="text-xs text-ink-muted mt-1 max-w-xs truncate leading-relaxed">
                         {log.description || 'No diagnostic remarks.'}
                       </p>
                     </td>
                     <td className="table-cell text-xs font-mono">
-                      <p className="text-gray-300">Est: ₹{log.estimated_cost}</p>
+                      <p className="text-ink-secondary">Est: ₹{log.estimated_cost}</p>
                       {log.status === 'Completed' && (
-                        <p className="text-green-400 font-semibold mt-0.5">Act: ₹{log.actual_cost}</p>
+                        <p className="text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Act: ₹{log.actual_cost}</p>
                       )}
                     </td>
                     <td className="table-cell text-center">
-                      <span className={`inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded border ${
-                        log.priority === 'Critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                        log.priority === 'High' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                      }`}>
-                        {log.priority}
-                      </span>
+                      <Badge tone={priorityTone(log.priority)}>{log.priority}</Badge>
                     </td>
                     <td className="table-cell text-center">
-                      <span className={`status-badge text-[9px] ${
-                        log.status === 'Completed' ? 'bg-green-500/15 text-green-400 border border-green-500/25' :
-                        log.status === 'In Progress' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/25' :
-                        log.status === 'Cancelled' ? 'bg-red-500/15 text-red-400 border border-red-500/25' :
-                        'bg-slate-500/15 text-slate-400 border border-slate-500/25'
-                      }`}>
-                        {log.status}
-                      </span>
+                      <Badge status={log.status} />
                     </td>
                     <td className="table-cell text-right">
                       <div className="flex gap-2 justify-end items-center opacity-85 group-hover:opacity-100 transition-opacity">
@@ -259,7 +246,7 @@ export default function Maintenance() {
                         {log.status === 'Pending' && (
                           <button
                             onClick={() => handleStartRepair(log.id || log._id)}
-                            className="btn-primary h-8 px-2.5 text-[10px] uppercase font-bold flex items-center gap-1 shadow-md shadow-brand-orange/10"
+                            className="btn-primary h-8 px-2.5 text-xs font-semibold"
                           >
                             <Play className="h-3 w-3" />
                             Start Work
@@ -270,7 +257,7 @@ export default function Maintenance() {
                         {log.status === 'In Progress' && (
                           <button
                             onClick={() => triggerComplete(log)}
-                            className="bg-green-600 hover:bg-green-700 text-white h-8 px-2.5 text-[10px] uppercase font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-2.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all active:scale-[0.98]"
                           >
                             <CheckCircle2 className="h-3 w-3" />
                             Complete
@@ -281,7 +268,7 @@ export default function Maintenance() {
                         {(log.status === 'Pending' || log.status === 'In Progress') && (
                           <button
                             onClick={() => handleCancelTicket(log.id || log._id)}
-                            className="bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 h-8 px-2.5 text-[10px] uppercase font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all"
+                            className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 h-8 px-2.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all active:scale-[0.98]"
                           >
                             <XCircle className="h-3 w-3" />
                             Cancel
@@ -292,7 +279,7 @@ export default function Maintenance() {
                         {(log.status === 'Completed' || log.status === 'Cancelled') && (
                           <button
                             onClick={() => handleDelete(log.id || log._id)}
-                            className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-400 transition-all h-8 w-8 flex items-center justify-center"
+                            className="p-1.5 bg-surface border border-line hover:border-rose-300 dark:hover:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg text-ink-muted hover:text-rose-600 dark:hover:text-rose-400 transition-all h-8 w-8 flex items-center justify-center"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -307,25 +294,7 @@ export default function Maintenance() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-white/5 bg-black/10 flex justify-between items-center text-xs">
-              <span className="text-gray-400">Showing {logs.length} of {total} tickets</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 font-semibold text-gray-400 hover:text-white transition-colors"
-                >
-                  Prev
-                </button>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 font-semibold text-gray-400 hover:text-white transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <Pagination page={page} limit={limit} total={total} onPageChange={setPage} />
           )}
         </div>
       )}
@@ -335,69 +304,69 @@ export default function Maintenance() {
         <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Vehicle</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Vehicle</label>
               <select
-                className="glass-input cursor-pointer"
+                className="input cursor-pointer"
                 {...register('vehicle_id', { required: 'Vehicle selection required' })}
               >
-                <option value="" className="bg-darkbg-sidebar">Select vehicle...</option>
+                <option value="">Select vehicle...</option>
                 {vehicles
                   .filter(v => v.status !== 'Retired' && v.status !== 'On Trip')
                   .map(v => (
-                    <option key={v.id || v._id} value={v.id || v._id} className="bg-darkbg-sidebar">
+                    <option key={v.id || v._id} value={v.id || v._id}>
                       {v.name} ({v.registration_number})
                     </option>
                   ))}
               </select>
-              {errors.vehicle_id && <p className="text-[10px] text-red-500 mt-1">{errors.vehicle_id.message}</p>}
+              {errors.vehicle_id && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.vehicle_id.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Priority Level</label>
-              <select className="glass-input cursor-pointer" {...register('priority', { required: true })}>
-                <option value="Low" className="bg-darkbg-sidebar">Low (Inspection)</option>
-                <option value="Medium" className="bg-darkbg-sidebar">Medium (Part wear)</option>
-                <option value="High" className="bg-darkbg-sidebar">High (Active failure)</option>
-                <option value="Critical" className="bg-darkbg-sidebar">Critical (Safety Ground)</option>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Priority Level</label>
+              <select className="input cursor-pointer" {...register('priority', { required: true })}>
+                <option value="Low">Low (Inspection)</option>
+                <option value="Medium">Medium (Part wear)</option>
+                <option value="High">High (Active failure)</option>
+                <option value="Critical">Critical (Safety Ground)</option>
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Reported Issue Summary</label>
+              <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Reported Issue Summary</label>
               <input
                 type="text"
                 placeholder="e.g. Steering alignment drift..."
-                className="glass-input"
+                className="input"
                 {...register('issue', { required: 'Issue title is required' })}
               />
-              {errors.issue && <p className="text-[10px] text-red-500 mt-1">{errors.issue.message}</p>}
+              {errors.issue && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.issue.message}</p>}
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Estimated Cost (₹ INR)</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Estimated Cost (₹ INR)</label>
             <input
               type="number"
               step="0.01"
               placeholder="e.g. 450"
-              className="glass-input"
+              className="input"
               {...register('estimated_cost', { required: 'Estimated cost is required' })}
             />
-            {errors.estimated_cost && <p className="text-[10px] text-red-500 mt-1">{errors.estimated_cost.message}</p>}
+            {errors.estimated_cost && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.estimated_cost.message}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Mechanical Diagnostics Remark</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Mechanical Diagnostics Remark</label>
             <textarea
               rows="3"
               placeholder="Describe full diagnostics, worn parts numbers, or troubleshooting steps..."
-              className="glass-input resize-none"
+              className="input resize-none"
               {...register('description')}
             ></textarea>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={() => setCreateOpen(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">File Ticket</button>
           </div>
@@ -407,18 +376,18 @@ export default function Maintenance() {
       {/* Modal: Close Ticket & Register Actual Cost */}
       <Modal isOpen={completeOpen} onClose={() => setCompleteOpen(false)} title="Close Ticket & File Costs">
         <form onSubmit={handleCompleteSubmit} className="space-y-4">
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-ink-muted leading-relaxed">
             Please input the actual repair cost billed by the workshop. This will complete the ticket, release the vehicle, and automatically file a transaction ledger in the expenses database.
           </p>
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Actual Repair Cost (₹ INR)</label>
+            <label className="block text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-1.5">Actual Repair Cost (₹ INR)</label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold"><IndianRupee className="h-4 w-4" /></span>
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <input
                 type="number"
                 step="0.01"
                 placeholder="Enter final cost..."
-                className="glass-input pl-8"
+                className="input pl-9"
                 value={actualCost}
                 onChange={(e) => setActualCost(e.target.value)}
                 required
@@ -426,9 +395,9 @@ export default function Maintenance() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={() => setCompleteOpen(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" className="btn-primary bg-green-600 hover:bg-green-700">Complete Repair</button>
+            <button type="submit" className="btn-primary bg-emerald-600 hover:bg-emerald-700">Complete Repair</button>
           </div>
         </form>
       </Modal>

@@ -1,20 +1,21 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { 
-  LayoutDashboard, 
-  Truck, 
-  Users, 
-  Milestone, 
-  Wrench, 
-  Fuel, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
-  Activity 
+import {
+  LayoutDashboard,
+  Truck,
+  Users,
+  Milestone,
+  Wrench,
+  Fuel,
+  BarChart3,
+  Settings,
+  LogOut,
+  Activity,
+  X
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
 
@@ -29,77 +30,94 @@ export default function Sidebar() {
     { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
   ];
 
-  function analyticsItemRequiredPermission() {
-    return hasPermission('analytics');
-  }
-
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
   return (
-    <aside className="w-64 bg-darkbg-sidebar border-r border-white/5 flex flex-col h-screen fixed top-0 left-0 z-30">
-      {/* Brand Header */}
-      <div className="p-6 border-b border-white/5 flex items-center gap-3">
-        <div className="bg-brand-orange/10 p-2.5 rounded-xl border border-brand-orange/35 animate-pulse">
-          <Activity className="h-6 w-6 text-brand-orange" />
-        </div>
-        <div>
-          <h1 className="font-extrabold text-xl tracking-wide font-sans text-white">TransitOps</h1>
-          <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mt-0.5">Fleet Logistics ERP</p>
-        </div>
-      </div>
+    <>
+      {/* Mobile scrim */}
+      {mobileOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-40 lg:hidden"
+        />
+      )}
 
-      {/* Nav Menu Items */}
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
-          // If permission is not met, do not render item
-          if (item.permission && !hasPermission(item.permission)) return null;
-
-          return (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) => `
-                flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
-                ${isActive 
-                  ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/15 font-semibold' 
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5'
-                }
-              `}
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon className={`h-5 w-5 transition-transform duration-200 group-hover:scale-105 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-brand-orange'}`} />
-                  {item.name}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* User Session Profile & LogOut */}
-      <div className="p-4 border-t border-white/5 bg-black/10">
-        <div className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
-          <div className="h-10 w-10 rounded-lg bg-gradient-to-tr from-brand-orange to-amber-500 flex items-center justify-center font-bold text-white shadow-md shadow-brand-orange/10 text-sm">
-            {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+      <aside
+        className={`w-64 bg-surface border-r border-line flex flex-col h-screen fixed top-0 left-0 z-50 transition-transform duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0`}
+      >
+        {/* Brand Header */}
+        <div className="p-5 border-b border-line flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-brand/10 p-2 rounded-lg border border-brand/20 shrink-0">
+              <Activity className="h-5 w-5 text-brand" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base tracking-tight text-ink-primary truncate">TransitOps</h1>
+              <p className="text-[10px] text-ink-muted font-medium uppercase tracking-widest mt-0.5">Fleet Logistics ERP</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 font-medium truncate capitalize">{user?.role}</p>
-          </div>
+          <button onClick={onClose} className="p-1.5 text-ink-muted hover:text-ink-primary lg:hidden">
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full mt-3 flex items-center justify-center gap-2.5 px-4 py-3 text-gray-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-xl text-sm font-semibold transition-all duration-200"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
-      </div>
-    </aside>
+        {/* Nav Menu Items */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          {menuItems.map((item) => {
+            // If permission is not met, do not render item
+            if (item.permission && !hasPermission(item.permission)) return null;
+
+            return (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                end={item.path === '/'}
+                onClick={onClose}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 group
+                  ${isActive
+                    ? 'bg-brand-light text-brand font-semibold'
+                    : 'text-ink-secondary hover:text-ink-primary hover:bg-surface-hover'
+                  }
+                `}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-brand' : 'text-ink-muted group-hover:text-ink-secondary'}`} />
+                    {item.name}
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {/* User Session Profile & LogOut */}
+        <div className="p-3 border-t border-line">
+          <div className="flex items-center gap-3 p-2 rounded-lg">
+            <div className="h-9 w-9 rounded-lg bg-brand flex items-center justify-center font-semibold text-white text-xs shrink-0">
+              {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink-primary truncate">{user?.name}</p>
+              <p className="text-xs text-ink-muted truncate capitalize">{user?.role}</p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full mt-1 flex items-center gap-3 px-3 py-2.5 text-ink-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg text-sm font-medium transition-colors duration-150"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+            Sign Out
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

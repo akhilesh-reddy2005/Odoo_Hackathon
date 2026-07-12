@@ -28,22 +28,22 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop blur overlay */}
-      <div 
-        onClick={onClose} 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+      {/* Backdrop overlay */}
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-200"
       ></div>
 
       {/* Modal Container */}
-      <div 
-        className={`w-full ${sizeClasses[size] || sizeClasses.md} bg-darkbg-sidebar border border-white/10 rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] overflow-hidden transform scale-100 transition-all duration-300 animate-in fade-in zoom-in-95`}
+      <div
+        className={`w-full ${sizeClasses[size] || sizeClasses.md} bg-surface border border-line rounded-xl shadow-xl relative z-10 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150`}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-          <h3 className="text-base font-bold text-white font-sans tracking-wide">{title}</h3>
-          <button 
-            onClick={onClose} 
-            className="p-1.5 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-lg transition-all active:scale-95"
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+          <h3 className="text-base font-semibold text-ink-primary tracking-tight">{title}</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-ink-muted hover:text-ink-primary bg-transparent hover:bg-surface-hover border border-transparent hover:border-line rounded-lg transition-all active:scale-95"
           >
             <X className="h-4 w-4" />
           </button>
