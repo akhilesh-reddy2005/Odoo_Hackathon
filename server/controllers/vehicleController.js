@@ -1,4 +1,7 @@
-const db = require('../config/db');
+const Vehicle = require('../models/Vehicle');
+const Maintenance = require('../models/Maintenance');
+const Trip = require('../models/Trip');
+const ActivityLog = require('../models/ActivityLog');
 
 // Helper to calculate individual vehicle health score
 function calculateHealthScore(vehicle, maintenanceLogs = []) {
@@ -42,59 +45,65 @@ function calculateHealthScore(vehicle, maintenanceLogs = []) {
 // Fetch all vehicles with search, sort, filter, pagination
 exports.getAllVehicles = async (req, res) => {
   try {
-    const { search, status, type, sortBy = 'id', order = 'DESC', page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { search, status, type, sortBy = 'createdAt', order = 'DESC', page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    let query = 'SELECT * FROM vehicles WHERE 1=1';
-    let countQuery = 'SELECT COUNT(*) as total FROM vehicles WHERE 1=1';
-    const params = [];
-    const countParams = [];
+    // Build query filters
+    const filterQuery = {};
 
-    // Search filter
     if (search && search.trim() !== '') {
-      const searchPattern = `%${search}%`;
-      query += ' AND (registration_number LIKE ? OR name LIKE ? OR model LIKE ?)';
-      countQuery += ' AND (registration_number LIKE ? OR name LIKE ? OR model LIKE ?)';
-      params.push(searchPattern, searchPattern, searchPattern);
-      countParams.push(searchPattern, searchPattern, searchPattern);
+      const regex = new RegExp(search, 'i');
+      filterQuery.$or = [
+        { registration_number: regex },
+        { name: regex },
+        { model: regex }
+      ];
     }
 
-    // Status filter
     if (status && status !== 'All') {
-      query += ' AND status = ?';
-      countQuery += ' AND status = ?';
-      params.push(status);
-      countParams.push(status);
+      filterQuery.status = status;
     }
 
-    // Type filter
     if (type && type !== 'All') {
-      query += ' AND type = ?';
-      countQuery += ' AND type = ?';
-      params.push(type);
-      countParams.push(type);
+      filterQuery.type = type;
     }
 
-    // Sorting list of allowed fields to avoid SQL injection
-    const allowedSortFields = ['id', 'registration_number', 'name', 'model', 'type', 'capacity', 'current_odometer', 'acquisition_cost', 'purchase_date', 'status'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'id';
-    const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    
-    query += ` ORDER BY ${safeSortBy} ${safeOrder} LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), offset);
+    // Sort mappings
+    const sortParams = {};
+    const sortFieldMap = {
+      id: '_id',
+      registration_number: 'registration_number',
+      name: 'name',
+      model: 'model',
+      type: 'type',
+      capacity: 'capacity',
+      current_odometer: 'current_odometer',
+      acquisition_cost: 'acquisition_cost',
+      purchase_date: 'purchase_date',
+      status: 'status',
+      createdAt: 'createdAt'
+    };
+    const targetSortField = sortFieldMap[sortBy] || 'createdAt';
+    sortParams[targetSortField] = order.toUpperCase() === 'ASC' ? 1 : -1;
 
-    // Run queries
-    const [vehicles] = await db.query(query, params);
-    const [[{ total }]] = await db.query(countQuery, countParams);
+    // Execute queries
+    const vehicles = await Vehicle.find(filterQuery)
+      .sort(sortParams)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Vehicle.countDocuments(filterQuery);
 
     // Compute health scores dynamically for all returned vehicles
-    for (let vehicle of vehicles) {
-      const [maint] = await db.query('SELECT priority, actual_cost, status FROM maintenance WHERE vehicle_id = ?', [vehicle.id]);
-      vehicle.health_score = calculateHealthScore(vehicle, maint);
-    }
+    const vehiclesWithHealth = await Promise.all(vehicles.map(async (v) => {
+      const maint = await Maintenance.find({ vehicle: v._id });
+      const plainVeh = v.toObject();
+      plainVeh.health_score = calculateHealthScore(v, maint);
+      return plainVeh;
+    }));
 
     res.json({
-      vehicles,
+      vehicles: vehiclesWithHealth,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -110,27 +119,30 @@ exports.getAllVehicles = async (req, res) => {
 exports.getVehicleById = async (req, res) => {
   const { id } = req.params;
   try {
-    const [vehicles] = await db.query('SELECT * FROM vehicles WHERE id = ?', [id]);
-    if (vehicles.length === 0) {
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found.' });
     }
-    const vehicle = vehicles[0];
 
     // Fetch Maintenance and Trip histories
-    const [maintenance] = await db.query('SELECT * FROM maintenance WHERE vehicle_id = ? ORDER BY id DESC LIMIT 5', [id]);
-    const [trips] = await db.query(
-      `SELECT t.*, d.name as driver_name 
-       FROM trips t
-       JOIN drivers d ON t.driver_id = d.id
-       WHERE t.vehicle_id = ? ORDER BY t.id DESC LIMIT 5`,
-      [id]
-    );
+    const maintenance = await Maintenance.find({ vehicle: id }).sort({ createdAt: -1 }).limit(5);
+    const trips = await Trip.find({ vehicle: id })
+      .populate('driver')
+      .sort({ createdAt: -1 })
+      .limit(5);
 
-    vehicle.health_score = calculateHealthScore(vehicle, maintenance);
-    vehicle.maintenance_history = maintenance;
-    vehicle.trip_history = trips;
+    const formattedTrips = trips.map(t => {
+      const obj = t.toObject();
+      obj.driver_name = t.driver ? t.driver.name : 'Unknown';
+      return obj;
+    });
 
-    res.json(vehicle);
+    const plainVeh = vehicle.toObject();
+    plainVeh.health_score = calculateHealthScore(vehicle, maintenance);
+    plainVeh.maintenance_history = maintenance;
+    plainVeh.trip_history = formattedTrips;
+
+    res.json(plainVeh);
   } catch (error) {
     console.error('Get vehicle detail error:', error);
     res.status(500).json({ message: 'Error retrieving vehicle detail.' });
@@ -147,24 +159,31 @@ exports.createVehicle = async (req, res) => {
   }
 
   try {
-    const [existing] = await db.query('SELECT id FROM vehicles WHERE registration_number = ?', [registration_number]);
-    if (existing.length > 0) {
+    const existing = await Vehicle.findOne({ registration_number: registration_number.toUpperCase() });
+    if (existing) {
       return res.status(400).json({ message: `Registration number ${registration_number} already exists.` });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO vehicles (registration_number, name, model, type, capacity, current_odometer, acquisition_cost, purchase_date, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [registration_number, name, model, type, parseFloat(capacity), parseFloat(current_odometer), parseFloat(acquisition_cost), purchase_date, status]
-    );
+    const newVehicle = await Vehicle.create({
+      registration_number: registration_number.toUpperCase(),
+      name,
+      model,
+      type,
+      capacity: parseFloat(capacity),
+      current_odometer: parseFloat(current_odometer),
+      acquisition_cost: parseFloat(acquisition_cost),
+      purchase_date,
+      status
+    });
 
     // Audit logs
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Register Vehicle', `Registered new vehicle: ${name} (${registration_number}).`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Register Vehicle',
+      details: `Registered new vehicle: ${name} (${registration_number}).`
+    });
 
-    res.status(201).json({ message: 'Vehicle registered successfully.', vehicleId: result.insertId });
+    res.status(201).json({ message: 'Vehicle registered successfully.', vehicleId: newVehicle._id });
 
   } catch (error) {
     console.error('Register vehicle error:', error);
@@ -178,41 +197,47 @@ exports.updateVehicle = async (req, res) => {
   const { registration_number, name, model, type, capacity, current_odometer, acquisition_cost, purchase_date, status } = req.body;
 
   try {
-    const [vehicle] = await db.query('SELECT status FROM vehicles WHERE id = ?', [id]);
-    if (vehicle.length === 0) {
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found.' });
     }
 
     // Uniqueness validation
-    const [existing] = await db.query('SELECT id FROM vehicles WHERE registration_number = ? AND id != ?', [registration_number, id]);
-    if (existing.length > 0) {
+    const existing = await Vehicle.findOne({ registration_number: registration_number.toUpperCase(), _id: { $ne: id } });
+    if (existing) {
       return res.status(400).json({ message: `Registration number ${registration_number} already in use.` });
     }
 
     // Business Rule Check: Do not allow changing status of vehicle to Available if it has active trip or maintenance
     if (status === 'Available') {
-      const [activeTrip] = await db.query("SELECT id FROM trips WHERE vehicle_id = ? AND status = 'Dispatched'", [id]);
-      if (activeTrip.length > 0) {
+      const activeTrip = await Trip.findOne({ vehicle: id, status: 'Dispatched' });
+      if (activeTrip) {
         return res.status(400).json({ message: 'Vehicle cannot be set to Available while On Trip.' });
       }
-      const [activeMaint] = await db.query("SELECT id FROM maintenance WHERE vehicle_id = ? AND status = 'In Progress'", [id]);
-      if (activeMaint.length > 0) {
+      const activeMaint = await Maintenance.findOne({ vehicle: id, status: 'In Progress' });
+      if (activeMaint) {
         return res.status(400).json({ message: 'Vehicle cannot be set to Available while In Shop.' });
       }
     }
 
-    await db.query(
-      `UPDATE vehicles 
-       SET registration_number = ?, name = ?, model = ?, type = ?, capacity = ?, current_odometer = ?, acquisition_cost = ?, purchase_date = ?, status = ?
-       WHERE id = ?`,
-      [registration_number, name, model, type, parseFloat(capacity), parseFloat(current_odometer), parseFloat(acquisition_cost), purchase_date, status, id]
-    );
+    await Vehicle.findByIdAndUpdate(id, {
+      registration_number: registration_number.toUpperCase(),
+      name,
+      model,
+      type,
+      capacity: parseFloat(capacity),
+      current_odometer: parseFloat(current_odometer),
+      acquisition_cost: parseFloat(acquisition_cost),
+      purchase_date,
+      status
+    });
 
     // Audit logs
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Update Vehicle', `Updated vehicle: ${name} (${registration_number}).`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Update Vehicle',
+      details: `Updated vehicle: ${name} (${registration_number}).`
+    });
 
     res.json({ message: 'Vehicle updated successfully.' });
 
@@ -222,38 +247,39 @@ exports.updateVehicle = async (req, res) => {
   }
 };
 
-// Delete a vehicle
+// Delete or retire a vehicle
 exports.deleteVehicle = async (req, res) => {
   const { id } = req.params;
   try {
-    const [vehicle] = await db.query('SELECT name, registration_number, status FROM vehicles WHERE id = ?', [id]);
-    if (vehicle.length === 0) {
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found.' });
     }
 
     // Business checks
-    if (vehicle[0].status === 'On Trip') {
+    if (vehicle.status === 'On Trip') {
       return res.status(400).json({ message: 'Cannot delete vehicle that is currently On Trip.' });
     }
 
-    // Soft-delete or retire vehicle instead of deleting if referenced in logs,
-    // For simplicity, let's mark it as 'Retired'. If it is 'Available', we can also allow hard delete
-    if (vehicle[0].status === 'Retired') {
-      await db.query('DELETE FROM vehicles WHERE id = ?', [id]);
+    // If already Retired, delete permanently
+    if (vehicle.status === 'Retired') {
+      await Vehicle.findByIdAndDelete(id);
       return res.json({ message: 'Vehicle deleted from database.' });
     }
 
-    await db.query("UPDATE vehicles SET status = 'Retired' WHERE id = ?", [id]);
+    vehicle.status = 'Retired';
+    await vehicle.save();
 
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Retire Vehicle', `Vehicle retired: ${vehicle[0].name} (${vehicle[0].registration_number}).`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Retire Vehicle',
+      details: `Vehicle retired: ${vehicle.name} (${vehicle.registration_number}).`
+    });
 
     res.json({ message: "Vehicle status successfully set to 'Retired'." });
 
   } catch (error) {
     console.error('Delete vehicle error:', error);
-    res.status(500).json({ message: 'Failed to delete or retire vehicle. References may exist.' });
+    res.status(500).json({ message: 'Failed to delete or retire vehicle.' });
   }
 };

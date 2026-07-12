@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const User = require('../models/User');
+const Role = require('../models/Role'); // Needed for population reference
 
 module.exports = async function authMiddleware(req, res, next) {
   try {
@@ -15,23 +16,26 @@ module.exports = async function authMiddleware(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'transitops_super_secret_jwt_key_2026_keyphrase');
     
-    // Fetch user details including role permissions
-    const [rows] = await db.query(
-      `SELECT u.id, u.username, u.email, u.name, u.status, u.role_id, r.name as role_name, r.permissions 
-       FROM users u
-       JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ? AND u.status = 'Active'`,
-      [decoded.id]
-    );
+    // Fetch user and populate role details
+    const user = await User.findOne({ _id: decoded.id, status: 'Active' })
+      .populate('role');
 
-    if (rows.length === 0) {
+    if (!user) {
       return res.status(401).json({ message: 'User not found or suspended.' });
     }
 
-    const user = rows[0];
-    user.permissions = JSON.parse(user.permissions); // Parse permission JSON object
+    // Format req.user to match expected structure in controllers
+    req.user = {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      status: user.status,
+      role_id: user.role._id,
+      role_name: user.role.name,
+      permissions: user.role.permissions // Automatically an object in Mongoose
+    };
 
-    req.user = user;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error.message);

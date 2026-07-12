@@ -1,4 +1,6 @@
-const db = require('../config/db');
+const Driver = require('../models/Driver');
+const Trip = require('../models/Trip');
+const ActivityLog = require('../models/ActivityLog');
 
 // Helper to calculate Driver Performance Score
 function calculatePerformanceScore(driver) {
@@ -20,60 +22,65 @@ function calculatePerformanceScore(driver) {
 // Fetch all drivers with search, filtering, and sorting
 exports.getAllDrivers = async (req, res) => {
   try {
-    const { search, status, expired, sortBy = 'id', order = 'DESC', page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { search, status, expired, sortBy = 'createdAt', order = 'DESC', page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    let query = 'SELECT * FROM drivers WHERE 1=1';
-    let countQuery = 'SELECT COUNT(*) as total FROM drivers WHERE 1=1';
-    const params = [];
-    const countParams = [];
+    const filterQuery = {};
 
     // Search query
     if (search && search.trim() !== '') {
-      const searchPattern = `%${search}%`;
-      query += ' AND (name LIKE ? OR phone LIKE ? OR license_number LIKE ?)';
-      countQuery += ' AND (name LIKE ? OR phone LIKE ? OR license_number LIKE ?)';
-      params.push(searchPattern, searchPattern, searchPattern);
-      countParams.push(searchPattern, searchPattern, searchPattern);
+      const regex = new RegExp(search, 'i');
+      filterQuery.$or = [
+        { name: regex },
+        { phone: regex },
+        { license_number: regex }
+      ];
     }
 
     // Status filter
     if (status && status !== 'All') {
-      query += ' AND status = ?';
-      countQuery += ' AND status = ?';
-      params.push(status);
-      countParams.push(status);
+      filterQuery.status = status;
     }
 
     // License expiry filter
     if (expired === 'true') {
-      query += ' AND license_expiry <= CURDATE()';
-      countQuery += ' AND license_expiry <= CURDATE()';
+      filterQuery.license_expiry = { $lte: new Date() };
     } else if (expired === 'false') {
-      query += ' AND license_expiry > CURDATE()';
-      countQuery += ' AND license_expiry > CURDATE()';
+      filterQuery.license_expiry = { $gt: new Date() };
     }
 
-    // Sorting
-    const allowedSortFields = ['id', 'name', 'license_expiry', 'safety_score', 'status', 'trip_count', 'fuel_efficiency'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'id';
-    const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // Sorting parameters mapping
+    const sortParams = {};
+    const sortFieldMap = {
+      id: '_id',
+      name: 'name',
+      license_expiry: 'license_expiry',
+      safety_score: 'safety_score',
+      status: 'status',
+      trip_count: 'trip_count',
+      fuel_efficiency: 'fuel_efficiency',
+      createdAt: 'createdAt'
+    };
+    const targetSortField = sortFieldMap[sortBy] || 'createdAt';
+    sortParams[targetSortField] = order.toUpperCase() === 'ASC' ? 1 : -1;
 
-    query += ` ORDER BY ${safeSortBy} ${safeOrder} LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), offset);
+    const drivers = await Driver.find(filterQuery)
+      .sort(sortParams)
+      .skip(skip)
+      .limit(parseInt(limit));
 
-    const [drivers] = await db.query(query, params);
-    const [[{ total }]] = await db.query(countQuery, countParams);
+    const total = await Driver.countDocuments(filterQuery);
 
-    // Dynamic calculations
-    drivers.forEach(driver => {
-      driver.performance_score = calculatePerformanceScore(driver);
-      // check if expired relative to curdate
-      driver.is_license_expired = new Date(driver.license_expiry) <= new Date();
+    // Dynamic calculations formatting
+    const formattedDrivers = drivers.map(d => {
+      const obj = d.toObject();
+      obj.performance_score = calculatePerformanceScore(d);
+      obj.is_license_expired = new Date(d.license_expiry) <= new Date();
+      return obj;
     });
 
     res.json({
-      drivers,
+      drivers: formattedDrivers,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -90,26 +97,30 @@ exports.getAllDrivers = async (req, res) => {
 exports.getDriverById = async (req, res) => {
   const { id } = req.params;
   try {
-    const [drivers] = await db.query('SELECT * FROM drivers WHERE id = ?', [id]);
-    if (drivers.length === 0) {
+    const driver = await Driver.findById(id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver not found.' });
     }
-    const driver = drivers[0];
 
     // Fetch related trips
-    const [trips] = await db.query(
-      `SELECT t.*, v.name as vehicle_name, v.registration_number 
-       FROM trips t
-       JOIN vehicles v ON t.vehicle_id = v.id
-       WHERE t.driver_id = ? ORDER BY t.id DESC LIMIT 5`,
-      [id]
-    );
+    const trips = await Trip.find({ driver: id })
+      .populate('vehicle')
+      .sort({ createdAt: -1 })
+      .limit(5);
 
-    driver.performance_score = calculatePerformanceScore(driver);
-    driver.is_license_expired = new Date(driver.license_expiry) <= new Date();
-    driver.trip_history = trips;
+    const formattedTrips = trips.map(t => {
+      const obj = t.toObject();
+      obj.vehicle_name = t.vehicle ? t.vehicle.name : 'Unknown';
+      obj.registration_number = t.vehicle ? t.vehicle.registration_number : '';
+      return obj;
+    });
 
-    res.json(driver);
+    const obj = driver.toObject();
+    obj.performance_score = calculatePerformanceScore(driver);
+    obj.is_license_expired = new Date(driver.license_expiry) <= new Date();
+    obj.trip_history = formattedTrips;
+
+    res.json(obj);
 
   } catch (error) {
     console.error('Get driver detail error:', error);
@@ -126,24 +137,29 @@ exports.createDriver = async (req, res) => {
   }
 
   try {
-    const [existing] = await db.query('SELECT id FROM drivers WHERE license_number = ?', [license_number]);
-    if (existing.length > 0) {
+    const existing = await Driver.findOne({ license_number: license_number.toUpperCase() });
+    if (existing) {
       return res.status(400).json({ message: `License number ${license_number} is already registered.` });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO drivers (name, phone, license_number, license_category, license_expiry, safety_score, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, phone, license_number, license_category, license_expiry, parseFloat(safety_score), status]
-    );
+    const newDriver = await Driver.create({
+      name,
+      phone,
+      license_number: license_number.toUpperCase(),
+      license_category,
+      license_expiry,
+      safety_score: parseFloat(safety_score),
+      status
+    });
 
     // Audit log
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Register Driver', `Registered driver: ${name} (License: ${license_number}).`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Register Driver',
+      details: `Registered driver: ${name} (License: ${license_number}).`
+    });
 
-    res.status(201).json({ message: 'Driver profile registered successfully.', driverId: result.insertId });
+    res.status(201).json({ message: 'Driver profile registered successfully.', driverId: newDriver._id });
 
   } catch (error) {
     console.error('Register driver error:', error);
@@ -157,37 +173,42 @@ exports.updateDriver = async (req, res) => {
   const { name, phone, license_number, license_category, license_expiry, safety_score, status, fuel_efficiency } = req.body;
 
   try {
-    const [driver] = await db.query('SELECT status FROM drivers WHERE id = ?', [id]);
-    if (driver.length === 0) {
+    const driver = await Driver.findById(id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver profile not found.' });
     }
 
     // License uniqueness check
-    const [existing] = await db.query('SELECT id FROM drivers WHERE license_number = ? AND id != ?', [license_number, id]);
-    if (existing.length > 0) {
+    const existing = await Driver.findOne({ license_number: license_number.toUpperCase(), _id: { $ne: id } });
+    if (existing) {
       return res.status(400).json({ message: `License number ${license_number} is already in use by another driver.` });
     }
 
     // Check availability business constraints
     if (status === 'Available') {
-      const [activeTrip] = await db.query("SELECT id FROM trips WHERE driver_id = ? AND status = 'Dispatched'", [id]);
-      if (activeTrip.length > 0) {
+      const activeTrip = await Trip.findOne({ driver: id, status: 'Dispatched' });
+      if (activeTrip) {
         return res.status(400).json({ message: 'Driver cannot be set to Available while On Trip.' });
       }
     }
 
-    await db.query(
-      `UPDATE drivers 
-       SET name = ?, phone = ?, license_number = ?, license_category = ?, license_expiry = ?, safety_score = ?, status = ?, fuel_efficiency = ?
-       WHERE id = ?`,
-      [name, phone, license_number, license_category, license_expiry, parseFloat(safety_score), status, parseFloat(fuel_efficiency || 0), id]
-    );
+    await Driver.findByIdAndUpdate(id, {
+      name,
+      phone,
+      license_number: license_number.toUpperCase(),
+      license_category,
+      license_expiry,
+      safety_score: parseFloat(safety_score),
+      status,
+      fuel_efficiency: parseFloat(fuel_efficiency || 0)
+    });
 
     // Audit logs
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Update Driver', `Updated driver profile: ${name}.`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Update Driver',
+      details: `Updated driver profile: ${name}.`
+    });
 
     res.json({ message: 'Driver details updated successfully.' });
 
@@ -197,35 +218,38 @@ exports.updateDriver = async (req, res) => {
   }
 };
 
-// Delete driver profile
+// Suspend or delete driver profile
 exports.deleteDriver = async (req, res) => {
   const { id } = req.params;
   try {
-    const [driver] = await db.query('SELECT name, status FROM drivers WHERE id = ?', [id]);
-    if (driver.length === 0) {
+    const driver = await Driver.findById(id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver profile not found.' });
     }
 
-    if (driver[0].status === 'On Trip') {
+    if (driver.status === 'On Trip') {
       return res.status(400).json({ message: 'Cannot delete a driver who is currently On Trip.' });
     }
 
-    if (driver[0].status === 'Suspended') {
-      await db.query('DELETE FROM drivers WHERE id = ?', [id]);
+    // If already Suspended, delete permanently
+    if (driver.status === 'Suspended') {
+      await Driver.findByIdAndDelete(id);
       return res.json({ message: 'Driver permanently deleted from database.' });
     }
 
-    await db.query("UPDATE drivers SET status = 'Suspended' WHERE id = ?", [id]);
+    driver.status = 'Suspended';
+    await driver.save();
 
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Suspend Driver', `Driver status suspended: ${driver[0].name}.`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Suspend Driver',
+      details: `Driver status suspended: ${driver.name}.`
+    });
 
     res.json({ message: "Driver status set to 'Suspended'." });
 
   } catch (error) {
     console.error('Delete driver error:', error);
-    res.status(500).json({ message: 'Failed to delete driver. References in trips may exist.' });
+    res.status(500).json({ message: 'Failed to delete driver.' });
   }
 };

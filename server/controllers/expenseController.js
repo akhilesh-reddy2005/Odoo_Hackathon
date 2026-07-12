@@ -1,44 +1,44 @@
-const db = require('../config/db');
+const Expense = require('../models/Expense');
+const Vehicle = require('../models/Vehicle');
+const ActivityLog = require('../models/ActivityLog');
 
 // Fetch all expenses with filters and pagination
 exports.getAllExpenses = async (req, res) => {
   try {
     const { type, vehicle_id, page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    let query = `
-      SELECT e.*, v.name as vehicle_name, v.registration_number as vehicle_reg, t.source, t.destination
-      FROM expenses e
-      LEFT JOIN vehicles v ON e.vehicle_id = v.id
-      LEFT JOIN trips t ON e.trip_id = t.id
-      WHERE 1=1
-    `;
-    let countQuery = 'SELECT COUNT(*) as total FROM expenses e WHERE 1=1';
-    const params = [];
-    const countParams = [];
+    const filterQuery = {};
 
     if (type && type !== 'All') {
-      query += ' AND e.type = ?';
-      countQuery += ' AND e.type = ?';
-      params.push(type);
-      countParams.push(type);
+      filterQuery.type = type;
     }
 
     if (vehicle_id && vehicle_id !== 'All') {
-      query += ' AND e.vehicle_id = ?';
-      countQuery += ' AND e.vehicle_id = ?';
-      params.push(vehicle_id);
-      countParams.push(vehicle_id);
+      filterQuery.vehicle = vehicle_id;
     }
 
-    query += ' ORDER BY e.date DESC, e.id DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    // populated lookups
+    const expenses = await Expense.find(filterQuery)
+      .populate('vehicle')
+      .populate('trip')
+      .sort({ date: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
-    const [expenses] = await db.query(query, params);
-    const [[{ total }]] = await db.query(countQuery, countParams);
+    const total = await Expense.countDocuments(filterQuery);
+
+    const formattedExpenses = expenses.map(exp => {
+      const obj = exp.toObject();
+      obj.vehicle_name = exp.vehicle ? exp.vehicle.name : '';
+      obj.vehicle_reg = exp.vehicle ? exp.vehicle.registration_number : '';
+      obj.source = exp.trip ? exp.trip.source : '';
+      obj.destination = exp.trip ? exp.trip.destination : '';
+      return obj;
+    });
 
     res.json({
-      expenses,
+      expenses: formattedExpenses,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -60,19 +60,23 @@ exports.createExpense = async (req, res) => {
   }
 
   try {
-    const [result] = await db.query(
-      `INSERT INTO expenses (vehicle_id, trip_id, type, amount, date, description)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [vehicle_id || null, trip_id || null, type, parseFloat(amount), date, description || '']
-    );
+    const newExpense = await Expense.create({
+      vehicle: vehicle_id || null,
+      trip: trip_id || null,
+      type,
+      amount: parseFloat(amount),
+      date,
+      description: description || ''
+    });
 
     // Logging Activity
-    await db.query(
-      'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-      [req.user.id, 'Log Expense', `Recorded expense of type: ${type} worth $${amount}.`]
-    );
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'Log Expense',
+      details: `Recorded expense of type: ${type} worth $${amount}.`
+    });
 
-    res.status(201).json({ message: 'Expense logged successfully.', expenseId: result.insertId });
+    res.status(201).json({ message: 'Expense logged successfully.', expenseId: newExpense._id });
 
   } catch (error) {
     console.error('Create expense error:', error);

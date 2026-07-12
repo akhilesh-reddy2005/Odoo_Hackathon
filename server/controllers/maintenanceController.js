@@ -1,56 +1,53 @@
-const db = require('../config/db');
+const Maintenance = require('../models/Maintenance');
+const Vehicle = require('../models/Vehicle');
+const Expense = require('../models/Expense');
+const ActivityLog = require('../models/ActivityLog');
 
 // Get all maintenance requests
 exports.getAllMaintenance = async (req, res) => {
   try {
     const { status, priority, search, page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    let query = `
-      SELECT m.*, v.name as vehicle_name, v.registration_number as vehicle_reg, v.status as vehicle_status
-      FROM maintenance m
-      JOIN vehicles v ON m.vehicle_id = v.id
-      WHERE 1=1
-    `;
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM maintenance m
-      JOIN vehicles v ON m.vehicle_id = v.id
-      WHERE 1=1
-    `;
-    const params = [];
-    const countParams = [];
+    const filterQuery = {};
 
     if (status && status !== 'All') {
-      query += ' AND m.status = ?';
-      countQuery += ' AND m.status = ?';
-      params.push(status);
-      countParams.push(status);
+      filterQuery.status = status;
     }
 
     if (priority && priority !== 'All') {
-      query += ' AND m.priority = ?';
-      countQuery += ' AND m.priority = ?';
-      params.push(priority);
-      countParams.push(priority);
+      filterQuery.priority = priority;
     }
 
+    // populated lookups
+    let logs = await Maintenance.find(filterQuery)
+      .populate('vehicle')
+      .sort({ createdAt: -1 });
+
+    // Client-side search matching population refs
     if (search && search.trim() !== '') {
-      const pattern = `%${search}%`;
-      query += ' AND (m.issue LIKE ? OR m.description LIKE ? OR v.name LIKE ?)';
-      countQuery += ' AND (m.issue LIKE ? OR m.description LIKE ? OR v.name LIKE ?)';
-      params.push(pattern, pattern, pattern);
-      countParams.push(pattern, pattern, pattern);
+      const regex = new RegExp(search, 'i');
+      logs = logs.filter(log => 
+        regex.test(log.issue) ||
+        regex.test(log.description) ||
+        (log.vehicle && regex.test(log.vehicle.name))
+      );
     }
 
-    query += ' ORDER BY m.id DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    const total = logs.length;
+    const paginatedLogs = logs.slice(skip, skip + parseInt(limit));
 
-    const [logs] = await db.query(query, params);
-    const [[{ total }]] = await db.query(countQuery, countParams);
+    // Format structure matching client requirements
+    const formattedLogs = paginatedLogs.map(log => {
+      const obj = log.toObject();
+      obj.vehicle_name = log.vehicle ? log.vehicle.name : 'Unknown';
+      obj.vehicle_reg = log.vehicle ? log.vehicle.registration_number : '';
+      obj.vehicle_status = log.vehicle ? log.vehicle.status : 'Unknown';
+      return obj;
+    });
 
     res.json({
-      logs,
+      logs: formattedLogs,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -72,22 +69,25 @@ exports.createRequest = async (req, res) => {
   }
 
   try {
-    const [vehicles] = await db.query('SELECT status FROM vehicles WHERE id = ?', [vehicle_id]);
-    if (vehicles.length === 0) {
+    const vehicle = await Vehicle.findById(vehicle_id);
+    if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found.' });
     }
 
-    if (vehicles[0].status === 'On Trip') {
+    if (vehicle.status === 'On Trip') {
       return res.status(400).json({ message: 'Cannot place vehicle in maintenance while it is dispatched on a trip.' });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO maintenance (vehicle_id, issue, description, priority, estimated_cost, status)
-       VALUES (?, ?, ?, ?, ?, 'Pending')`,
-      [vehicle_id, issue, description || '', priority, parseFloat(estimated_cost)]
-    );
+    const newLog = await Maintenance.create({
+      vehicle: vehicle_id,
+      issue,
+      description: description || '',
+      priority,
+      estimated_cost: parseFloat(estimated_cost),
+      status: 'Pending'
+    });
 
-    res.status(201).json({ message: 'Maintenance ticket created.', requestId: result.insertId });
+    res.status(201).json({ message: 'Maintenance ticket created.', requestId: newLog._id });
 
   } catch (error) {
     console.error('Create maintenance error:', error);
@@ -100,23 +100,15 @@ exports.updateRequest = async (req, res) => {
   const { id } = req.params;
   const { status, actual_cost, priority, issue, description } = req.body;
 
-  const conn = await db.getConnection();
   try {
-    await conn.beginTransaction();
-
-    const [tickets] = await conn.query('SELECT * FROM maintenance WHERE id = ?', [id]);
-    if (tickets.length === 0) {
-      await conn.rollback();
+    const ticket = await Maintenance.findById(id).populate('vehicle');
+    if (!ticket) {
       return res.status(404).json({ message: 'Maintenance ticket not found.' });
     }
-    const ticket = tickets[0];
-    const vehicleId = ticket.vehicle_id;
+    const vehicleId = ticket.vehicle._id;
+    const vehicleName = ticket.vehicle.name;
 
-    // Fetch vehicle
-    const [vehicles] = await conn.query('SELECT name FROM vehicles WHERE id = ?', [vehicleId]);
-    const vehicleName = vehicles[0]?.name;
-
-    // Handle updates of textual properties
+    // Handle updates of properties
     let newPriority = priority || ticket.priority;
     let newIssue = issue || ticket.issue;
     let newDescription = description !== undefined ? description : ticket.description;
@@ -125,56 +117,53 @@ exports.updateRequest = async (req, res) => {
     // Business Logic transitions:
     if (status && status !== ticket.status) {
       if (status === 'In Progress') {
-        // Automatically put vehicle in shop
-        await conn.query("UPDATE vehicles SET status = 'In Shop' WHERE id = ?", [vehicleId]);
+        // Put vehicle in shop
+        await Vehicle.findByIdAndUpdate(vehicleId, { status: 'In Shop' });
       } else if (status === 'Completed') {
-        // Verify cost is provided
         if (newCost <= 0) {
-          await conn.rollback();
           return res.status(400).json({ message: 'Actual cost must be specified to complete maintenance.' });
         }
-        // Automatically restore vehicle status to Available
-        await conn.query("UPDATE vehicles SET status = 'Available' WHERE id = ?", [vehicleId]);
+        // Restore vehicle to Available
+        await Vehicle.findByIdAndUpdate(vehicleId, { status: 'Available' });
         
         // Log Expense
-        await conn.query(
-          `INSERT INTO expenses (vehicle_id, type, amount, date, description)
-           VALUES (?, 'Maintenance', ?, CURDATE(), ?)`,
-          [vehicleId, newCost, `Completed maintenance ID: ${id} for ${vehicleName}. Issue: ${newIssue}`]
-        );
+        await Expense.create({
+          vehicle: vehicleId,
+          type: 'Maintenance',
+          amount: newCost,
+          date: new Date(),
+          description: `Completed maintenance ID: ${id} for ${vehicleName}. Issue: ${newIssue}`
+        });
       } else if (status === 'Cancelled') {
-        // If it was in progress, set vehicle back to Available
         if (ticket.status === 'In Progress') {
-          await conn.query("UPDATE vehicles SET status = 'Available' WHERE id = ?", [vehicleId]);
+          await Vehicle.findByIdAndUpdate(vehicleId, { status: 'Available' });
         }
       }
     }
 
     // Update tickets
-    await conn.query(
-      `UPDATE maintenance 
-       SET status = ?, actual_cost = ?, priority = ?, issue = ?, description = ? 
-       WHERE id = ?`,
-      [status || ticket.status, newCost, newPriority, newIssue, newDescription, id]
-    );
+    await Maintenance.findByIdAndUpdate(id, {
+      status: status || ticket.status,
+      actual_cost: newCost,
+      priority: newPriority,
+      issue: newIssue,
+      description: newDescription
+    });
 
     // Logging activity
     if (status && status !== ticket.status) {
-      await conn.query(
-        'INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)',
-        [req.user.id, 'Maintenance Update', `Ticket ID ${id} status updated to ${status}.`]
-      );
+      await ActivityLog.create({
+        user: req.user.id,
+        action: 'Maintenance Update',
+        details: `Ticket ID ${id} status updated to ${status}.`
+      });
     }
 
-    await conn.commit();
     res.json({ message: 'Maintenance record updated successfully.' });
 
   } catch (error) {
-    await conn.rollback();
     console.error('Update maintenance error:', error);
     res.status(500).json({ message: 'Failed to update maintenance record.' });
-  } finally {
-    conn.release();
   }
 };
 
@@ -182,16 +171,16 @@ exports.updateRequest = async (req, res) => {
 exports.deleteRequest = async (req, res) => {
   const { id } = req.params;
   try {
-    const [tickets] = await db.query('SELECT status FROM maintenance WHERE id = ?', [id]);
-    if (tickets.length === 0) {
+    const ticket = await Maintenance.findById(id);
+    if (!ticket) {
       return res.status(404).json({ message: 'Record not found.' });
     }
 
-    if (tickets[0].status === 'In Progress') {
+    if (ticket.status === 'In Progress') {
       return res.status(400).json({ message: 'Cannot delete maintenance ticket that is currently In Progress.' });
     }
 
-    await db.query('DELETE FROM maintenance WHERE id = ?', [id]);
+    await Maintenance.findByIdAndDelete(id);
     res.json({ message: 'Maintenance record deleted.' });
 
   } catch (error) {

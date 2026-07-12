@@ -86,9 +86,9 @@ TransitOps/
    ```bash
    cd client
    ```
-2. Install React dependencies:
+2. Install React dependencies (use --legacy-peer-deps for React 19 peer resolutions):
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 3. Start the local Vite development server:
    ```bash

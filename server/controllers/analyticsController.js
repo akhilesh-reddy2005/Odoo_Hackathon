@@ -1,58 +1,111 @@
-const db = require('../config/db');
+const Vehicle = require('../models/Vehicle');
+const Driver = require('../models/Driver');
+const Trip = require('../models/Trip');
+const Maintenance = require('../models/Maintenance');
+const FuelLog = require('../models/FuelLog');
+const Expense = require('../models/Expense');
+const Notification = require('../models/Notification');
 
 // Get Dashboard KPIs and Summary Lists
 exports.getDashboardStats = async (req, res) => {
   try {
-    // 1. Vehicle counts by status
-    const [[{ total: totalVehicles }]] = await db.query('SELECT COUNT(*) as total FROM vehicles');
-    const [[{ total: activeVehicles }]] = await db.query("SELECT COUNT(*) as total FROM vehicles WHERE status = 'On Trip'");
-    const [[{ total: availableVehicles }]] = await db.query("SELECT COUNT(*) as total FROM vehicles WHERE status = 'Available'");
-    const [[{ total: shopVehicles }]] = await db.query("SELECT COUNT(*) as total FROM vehicles WHERE status = 'In Shop'");
-    
+    // 1. Vehicle status counts
+    const totalVehicles = await Vehicle.countDocuments({});
+    const activeVehicles = await Vehicle.countDocuments({ status: 'On Trip' });
+    const availableVehicles = await Vehicle.countDocuments({ status: 'Available' });
+    const shopVehicles = await Vehicle.countDocuments({ status: 'In Shop' });
+
     // 2. Driver counts
-    const [[{ total: activeDrivers }]] = await db.query("SELECT COUNT(*) as total FROM drivers WHERE status = 'On Trip'");
-    
+    const activeDrivers = await Driver.countDocuments({ status: 'On Trip' });
+
     // 3. Trip counts
-    const [[{ total: activeTrips }]] = await db.query("SELECT COUNT(*) as total FROM trips WHERE status = 'Dispatched'");
-    const [[{ total: pendingTrips }]] = await db.query("SELECT COUNT(*) as total FROM trips WHERE status = 'Draft'");
-    
+    const activeTrips = await Trip.countDocuments({ status: 'Dispatched' });
+    const pendingTrips = await Trip.countDocuments({ status: 'Draft' });
+
     // 4. Fleet Utilization %
     const utilizationRate = totalVehicles > 0 ? parseFloat(((activeVehicles / totalVehicles) * 100).toFixed(2)) : 0;
-    
-    // 5. Today's Expenses
-    const [[{ total: todayExpenses }]] = await db.query('SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE date = CURDATE()');
-    const [[{ total: todayFuel }]] = await db.query('SELECT COALESCE(SUM(fuel_cost), 0) as total FROM fuel_logs WHERE date = CURDATE()');
-    
+
+    // 5. Today's costs sum range
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const todayExpensesAgg = await Expense.aggregate([
+      { $match: { date: { $gte: startOfToday, $lte: endOfToday } } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    const todayExpenses = todayExpensesAgg.length > 0 ? todayExpensesAgg[0].total : 0;
+
+    const todayFuelAgg = await FuelLog.aggregate([
+      { $match: { date: { $gte: startOfToday, $lte: endOfToday } } },
+      { $group: { _id: null, total: { $sum: "$fuel_cost" } } }
+    ]);
+    const todayFuel = todayFuelAgg.length > 0 ? todayFuelAgg[0].total : 0;
+
     // 6. Recent Trips (Top 5)
-    const [recentTrips] = await db.query(
-      `SELECT t.*, v.name as vehicle_name, v.registration_number, d.name as driver_name
-       FROM trips t
-       JOIN vehicles v ON t.vehicle_id = v.id
-       JOIN drivers d ON t.driver_id = d.id
-       ORDER BY t.id DESC LIMIT 5`
-    );
+    const recentTripsRaw = await Trip.find({})
+      .populate('vehicle')
+      .populate('driver')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    const recentTrips = recentTripsRaw.map(t => ({
+      id: t._id,
+      source: t.source,
+      destination: t.destination,
+      planned_distance: t.planned_distance,
+      cargo_weight: t.cargo_weight,
+      status: t.status,
+      vehicle_name: t.vehicle ? t.vehicle.name : 'Unknown',
+      registration_number: t.vehicle ? t.vehicle.registration_number : '',
+      driver_name: t.driver ? t.driver.name : 'Unknown'
+    }));
 
     // 7. Maintenance Alerts (Pending/In Progress tickets)
-    const [maintenanceAlerts] = await db.query(
-      `SELECT m.*, v.name as vehicle_name, v.registration_number
-       FROM maintenance m
-       JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE m.status IN ('Pending', 'In Progress')
-       ORDER BY m.priority = 'Critical' DESC, m.id DESC LIMIT 5`
-    );
+    const maintRaw = await Maintenance.find({ status: { $in: ['Pending', 'In Progress'] } })
+      .populate('vehicle')
+      .sort({ priority: 1, createdAt: -1 }) // Custom ordering priorities handled in JS
+      .limit(5);
+
+    const maintenanceAlerts = maintRaw.map(m => ({
+      id: m._id,
+      issue: m.issue,
+      description: m.description,
+      priority: m.priority,
+      estimated_cost: m.estimated_cost,
+      status: m.status,
+      vehicle_name: m.vehicle ? m.vehicle.name : 'Unknown',
+      registration_number: m.vehicle ? m.vehicle.registration_number : ''
+    }));
 
     // 8. License Expiry Alerts (Expired or expiring in 30 days)
-    const [licenseAlerts] = await db.query(
-      `SELECT id, name, license_number, license_expiry, status
-       FROM drivers
-       WHERE license_expiry <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-       ORDER BY license_expiry ASC LIMIT 5`
-    );
+    const expiryThreshold = new Date();
+    expiryThreshold.setDate(expiryThreshold.getDate() + 30);
 
-    // 9. Vehicles status summary
-    const [vehicleStatusChart] = await db.query(
-      'SELECT status as name, COUNT(*) as value FROM vehicles GROUP BY status'
-    );
+    const licenseAlertsRaw = await Driver.find({ license_expiry: { $lte: expiryThreshold } })
+      .sort({ license_expiry: 1 })
+      .limit(5);
+
+    const licenseAlerts = licenseAlertsRaw.map(d => ({
+      id: d._id,
+      name: d.name,
+      license_number: d.license_number,
+      license_expiry: d.license_expiry.toISOString().split('T')[0],
+      status: d.status
+    }));
+
+    // 9. Vehicles status summary chart formats
+    const statusChartAgg = await Vehicle.aggregate([
+      { $group: { _id: "$status", value: { $sum: 1 } } }
+    ]);
+    const vehicleStatusChart = statusChartAgg.map(item => ({
+      name: item._id,
+      value: item.value
+    }));
+
+    // 10. Fetch notifications list
+    const notifications = await Notification.find({}).sort({ created_at: -1 }).limit(10);
 
     res.json({
       kpis: {
@@ -69,7 +122,8 @@ exports.getDashboardStats = async (req, res) => {
       recentTrips,
       maintenanceAlerts,
       licenseAlerts,
-      vehicleStatusChart
+      vehicleStatusChart,
+      notifications
     });
 
   } catch (error) {
@@ -78,96 +132,135 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
-// Get Analytics Charts Data (Recharts formats)
+// Get Analytics Charts Data (Recharts format pipelines)
 exports.getAnalyticsCharts = async (req, res) => {
   try {
-    // 1. Monthly Trips Chart (Trips per month, last 6 months)
-    const [monthlyTrips] = await db.query(
-      `SELECT DATE_FORMAT(created_at, '%b %Y') as name, 
-              COUNT(*) as trips,
-              SUM(CASE WHEN status='Completed' THEN 1 ELSE 0 END) as completed,
-              SUM(CASE WHEN status='Cancelled' THEN 1 ELSE 0 END) as cancelled
-       FROM trips
-       GROUP BY DATE_FORMAT(created_at, '%b %Y'), YEAR(created_at), MONTH(created_at)
-       ORDER BY YEAR(created_at) DESC, MONTH(created_at) DESC
-       LIMIT 6`
-    );
+    // 1. Monthly Trips Chart
+    const monthlyTripsAgg = await Trip.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%b %Y", date: "$createdAt" } },
+          trips: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ["$status", "Cancelled"] }, 1, 0] } },
+          minDate: { $min: "$createdAt" }
+        }
+      },
+      { $sort: { minDate: 1 } },
+      { $project: { _id: 0, name: "$_id", trips: 1, completed: 1, cancelled: 1 } },
+      { $limit: 6 }
+    ]);
 
-    // 2. Monthly Expenses Chart by category (Toll, Fuel, Maintenance, Insurance, etc.)
-    const [monthlyExpenses] = await db.query(
-      `SELECT DATE_FORMAT(date, '%b %Y') as month,
-              SUM(CASE WHEN type='Fuel' THEN amount ELSE 0 END) as Fuel,
-              SUM(CASE WHEN type='Maintenance' OR type='Repair' THEN amount ELSE 0 END) as Maintenance,
-              SUM(CASE WHEN type='Toll' THEN amount ELSE 0 END) as Tolls,
-              SUM(CASE WHEN type NOT IN ('Fuel', 'Maintenance', 'Repair', 'Toll') THEN amount ELSE 0 END) as Other
-       FROM expenses
-       GROUP BY DATE_FORMAT(date, '%b %Y'), YEAR(date), MONTH(date)
-       ORDER BY YEAR(date) DESC, MONTH(date) DESC
-       LIMIT 6`
-    );
+    // 2. Monthly Expenses Stacked Chart
+    const monthlyExpensesAgg = await Expense.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%b %Y", date: "$date" } },
+          Fuel: { $sum: { $cond: [{ $eq: ["$type", "Fuel"] }, "$amount", 0] } },
+          Maintenance: { $sum: { $cond: [{ $in: ["$type", ["Maintenance", "Repair"]] }, "$amount", 0] } },
+          Tolls: { $sum: { $cond: [{ $eq: ["$type", "Toll"] }, "$amount", 0] } },
+          Other: { $sum: { $cond: [{ $not: [{ $in: ["$type", ["Fuel", "Maintenance", "Repair", "Toll"]] }] }, "$amount", 0] } },
+          minDate: { $min: "$date" }
+        }
+      },
+      { $sort: { minDate: 1 } },
+      { $project: { _id: 0, month: "$_id", Fuel: 1, Maintenance: 1, Tolls: 1, Other: 1 } },
+      { $limit: 6 }
+    ]);
 
     // 3. Fuel Consumption Trends (liters and cost by vehicle, top 5)
-    const [fuelConsumption] = await db.query(
-      `SELECT v.name, SUM(f.fuel_quantity) as quantity, SUM(f.fuel_cost) as cost
-       FROM fuel_logs f
-       JOIN vehicles v ON f.vehicle_id = v.id
-       GROUP BY v.id, v.name
-       ORDER BY quantity DESC LIMIT 5`
-    );
+    const fuelConsumption = await FuelLog.aggregate([
+      {
+        $group: {
+          _id: "$vehicle",
+          quantity: { $sum: "$fuel_quantity" },
+          cost: { $sum: "$fuel_cost" }
+        }
+      },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "_id",
+          foreignField: "_id",
+          as: "vehicleInfo"
+        }
+      },
+      { $unwind: "$vehicleInfo" },
+      { $project: { _id: 0, name: "$vehicleInfo.name", quantity: 1, cost: 1 } },
+      { $sort: { quantity: -1 } },
+      { $limit: 5 }
+    ]);
 
     // 4. Maintenance Costs per Vehicle (top 5 costly vehicles)
-    const [costlyVehicles] = await db.query(
-      `SELECT v.name, v.registration_number as reg, COALESCE(SUM(m.actual_cost), 0) as cost
-       FROM maintenance m
-       JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE m.status = 'Completed'
-       GROUP BY v.id, v.name, v.registration_number
-       ORDER BY cost DESC LIMIT 5`
-    );
+    const costlyVehicles = await Maintenance.aggregate([
+      { $match: { status: 'Completed' } },
+      {
+        $group: {
+          _id: "$vehicle",
+          cost: { $sum: "$actual_cost" }
+        }
+      },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "_id",
+          foreignField: "_id",
+          as: "vehicleInfo"
+        }
+      },
+      { $unwind: "$vehicleInfo" },
+      { $project: { _id: 0, name: "$vehicleInfo.name", reg: "$vehicleInfo.registration_number", cost: 1 } },
+      { $sort: { cost: -1 } },
+      { $limit: 5 }
+    ]);
 
     // 5. Driver performance top standings
-    const [topDrivers] = await db.query(
-      `SELECT name, safety_score as safety, trip_count as trips, fuel_efficiency as efficiency
-       FROM drivers
-       ORDER BY safety_score DESC LIMIT 5`
-    );
+    const topDriversRaw = await Driver.find({})
+      .sort({ safety_score: -1 })
+      .limit(5);
+
+    const topDrivers = topDriversRaw.map(d => ({
+      name: d.name,
+      safety: d.safety_score,
+      trips: d.trip_count,
+      efficiency: d.fuel_efficiency
+    }));
 
     // 6. Vehicle ROI Analysis: cost of acquisition vs. trip earnings and expenses
-    // We estimate average earnings of $1.80 per planned distance km as trip revenue.
-    const [vehicleROI] = await db.query(
-      `SELECT v.name, 
-              v.acquisition_cost as acquisition,
-              COALESCE(SUM(e.amount), 0) as total_expenses,
-              COALESCE(SUM(t.planned_distance * 1.80), 0) as estimated_revenue
-       FROM vehicles v
-       LEFT JOIN expenses e ON v.id = e.vehicle_id
-       LEFT JOIN trips t ON v.id = t.vehicle_id AND t.status = 'Completed'
-       GROUP BY v.id, v.name, v.acquisition_cost
-       LIMIT 6`
-    );
+    const vehiclesList = await Vehicle.find({}).limit(6);
+    const vehicleROI = await Promise.all(vehiclesList.map(async (v) => {
+      const expenseSumAgg = await Expense.aggregate([
+        { $match: { vehicle: v._id } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]);
+      const expenses = expenseSumAgg.length > 0 ? expenseSumAgg[0].total : 0;
 
-    // Formats ROI
-    const formattedROI = vehicleROI.map(item => {
-      const expenses = parseFloat(item.total_expenses);
-      const revenue = parseFloat(item.estimated_revenue);
+      const tripsDistanceAgg = await Trip.aggregate([
+        { $match: { vehicle: v._id, status: 'Completed' } },
+        { $group: { _id: null, total: { $sum: "$planned_distance" } } }
+      ]);
+      const totalDistance = tripsDistanceAgg.length > 0 ? tripsDistanceAgg[0].total : 0;
+      const revenue = parseFloat((totalDistance * 1.80).toFixed(2)); // estimated $1.80 per km
+
       const netProfit = revenue - expenses;
-      const roiPercentage = item.acquisition > 0 ? parseFloat(((netProfit / item.acquisition) * 100).toFixed(2)) : 0;
+      const roiPercentage = v.acquisition_cost > 0 ? parseFloat(((netProfit / v.acquisition_cost) * 100).toFixed(2)) : 0;
+
       return {
-        name: item.name,
-        acquisition: parseFloat(item.acquisition),
+        name: v.name,
+        acquisition: v.acquisition_cost,
         expenses,
         revenue,
         roi: roiPercentage
       };
-    });
+    }));
 
     res.json({
-      monthlyTrips: monthlyTrips.reverse(),
-      monthlyExpenses: monthlyExpenses.reverse(),
+      monthlyTrips: monthlyTripsAgg,
+      monthlyExpenses: monthlyExpensesAgg,
       fuelConsumption,
       costlyVehicles,
       topDrivers,
-      vehicleROI: formattedROI
+      vehicleROI
     });
 
   } catch (error) {
